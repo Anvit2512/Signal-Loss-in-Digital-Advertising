@@ -380,8 +380,9 @@ if __name__ == "__main__":
 
         rewards = []
         for step_n in range(cfg.max_steps):
-            # Simple equal-split agent for smoke test
-            per_camp = obs.total_budget_remaining / 3
+            # Spread budget evenly across remaining steps
+            steps_left = max(1, cfg.max_steps - step_n)
+            per_camp = obs.total_budget_remaining / (steps_left * 3)
             action = Action(
                 allocations={c: per_camp for c in CAMPAIGN_NAMES},
                 attribution=AttributionMethod.LAST_CLICK,

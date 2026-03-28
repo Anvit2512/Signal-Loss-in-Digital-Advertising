@@ -1,0 +1,104 @@
+name: meta-signal
+display_name: "Meta-Signal: Privacy-Constrained Ad Optimisation"
+version: "1.0.0"
+description: |
+  An RL environment where an AI agent allocates advertising budget across three
+  campaigns but can only observe noisy, aggregated conversion data -- exactly
+  how Meta's real ad system works after signal loss.
+  Models differential privacy budget depletion, mid-episode regime changes,
+  and regulatory data-minimisation constraints.
+
+author: Anvit2512
+tags:
+  - advertising
+  - differential-privacy
+  - reinforcement-learning
+  - budget-optimisation
+  - signal-loss
+
+server:
+  port: 7860
+  health_endpoint: /health
+
+endpoints:
+  tasks:    GET  /tasks
+  reset:    POST /reset
+  step:     POST /step
+  state:    GET  /state
+  grader:   POST /grader
+  baseline: POST /baseline
+
+tasks:
+  - id: 1
+    name: "Budget Optimisation"
+    difficulty: easy
+    max_steps: 10
+    target_roas: 1.5
+    max_features: 5
+    initial_epsilon: 3.0
+
+  - id: 2
+    name: "Noisy Signal Recovery"
+    difficulty: medium
+    max_steps: 15
+    target_roas: 1.5
+    max_features: 3
+    initial_epsilon: 3.0
+    note: "Privacy regime change triggers at step 3"
+
+  - id: 3
+    name: "Privacy Frontier"
+    difficulty: hard
+    max_steps: 15
+    target_roas: 1.0
+    max_features: 1
+    initial_epsilon: 2.0
+    note: "Regulatory data minimisation in force from start"
+
+scoring:
+  min: 0.0
+  max: 1.0
+  continuous: true
+  partial_credit: true
+
+action_schema:
+  type: object
+  properties:
+    allocations:
+      type: object
+      description: "Dollar amount to spend per campaign. Keys: camp_feed, camp_reels, camp_stories"
+      additionalProperties:
+        type: number
+        minimum: 0
+    attribution:
+      type: string
+      enum: [last_click, probabilistic]
+      description: "last_click is free; probabilistic costs 0.20 epsilon extra"
+    feature_mask:
+      type: array
+      items:
+        type: string
+      description: "Feature names from I1-I13 or C1-C26. Each costs 0.05 epsilon."
+
+observation_schema:
+  type: object
+  properties:
+    step:
+      type: integer
+    campaigns:
+      type: array
+      description: "Per-campaign noisy stats"
+    total_budget_remaining:
+      type: number
+    epsilon_remaining:
+      type: number
+    privacy_regime:
+      type: string
+      enum: [standard, high_noise, minimal_data, exhausted]
+    available_features:
+      type: array
+    regulatory_violation:
+      type: boolean
+    warning:
+      type: string
+      nullable: true

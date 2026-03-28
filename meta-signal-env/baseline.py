@@ -1,8 +1,12 @@
 """
-Baseline inference script -- GPT-4o-mini agent.
+Baseline inference script -- LLM agent (Groq or OpenAI).
 
 Runs all three tasks with seed=42 and returns a BaselineResult.
 Can be imported by the FastAPI server (/baseline endpoint) or run standalone.
+
+Provider priority:
+  1. Groq  (GROQ_API_KEY set)  -- uses llama-3.3-70b-versatile, fast + free tier
+  2. OpenAI (OPENAI_API_KEY set) -- uses gpt-4o-mini
 
 Expected scores (equal-split dummy confirms these gaps are real):
   Task 1: ~0.65   model spots best campaign from clean signals
@@ -130,6 +134,7 @@ def _run_task(
     task_id: int,
     seed: int,
     client,
+    model: str,
 ) -> GraderResult:
     """Run one full episode for a task using the GPT agent."""
     cfg    = TASK_CONFIGS[task_id]
@@ -141,7 +146,7 @@ def _run_task(
         messages.append({"role": "user", "content": prompt})
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0.2,
@@ -161,32 +166,43 @@ def _run_task(
 
 def run_baseline(seed: int = 42) -> BaselineResult:
     """
-    Run the GPT-4o-mini baseline across all three tasks.
-    Returns a BaselineResult with per-task scores and breakdowns.
+    Run the LLM baseline across all three tasks.
+    Checks for GROQ_API_KEY first, falls back to OPENAI_API_KEY.
 
-    Requires OPENAI_API_KEY environment variable.
+    Get a free Groq key at: console.groq.com
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    from openai import OpenAI
+
+    groq_key  = os.getenv("GROQ_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    if groq_key:
+        client = OpenAI(
+            api_key=groq_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
+        model = "llama-3.3-70b-versatile"
+    elif openai_key:
+        client = OpenAI(api_key=openai_key)
+        model  = "gpt-4o-mini"
+    else:
         raise EnvironmentError(
-            "OPENAI_API_KEY environment variable not set. "
-            "Export it before running the baseline."
+            "No LLM API key found. Set GROQ_API_KEY (free at console.groq.com) "
+            "or OPENAI_API_KEY."
         )
 
-    from openai import OpenAI
-    client  = OpenAI(api_key=api_key)
-    env     = MetaSignalEnv()   # fresh instance, does not touch the server's shared env
-    scores:  Dict[str, float]      = {}
+    env     = MetaSignalEnv()
+    scores:  Dict[str, float]        = {}
     details: Dict[str, GraderResult] = {}
 
     for task_id in [1, 2, 3]:
-        grade = _run_task(env, task_id, seed, client)
+        grade = _run_task(env, task_id, seed, client, model)
         key   = f"task_{task_id}"
         scores[key]  = grade.score
         details[key] = grade
 
     return BaselineResult(
-        model="gpt-4o-mini",
+        model=model,
         seed=seed,
         scores=scores,
         details=details,

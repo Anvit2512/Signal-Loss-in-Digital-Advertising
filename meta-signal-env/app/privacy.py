@@ -77,6 +77,7 @@ class PrivacyEngine:
         self._epsilon          = initial_epsilon
         self._forced_regime    = forced_regime
         self._rng              = np.random.default_rng(seed)
+        self._noise_multiplier = 1.0   # Task 2: jumps to 8x at step 3
 
         # Audit trail -- list of (feature_count, attribution, cost) per step
         self._audit: List[Tuple[int, str, float]] = []
@@ -104,18 +105,19 @@ class PrivacyEngine:
             return self._forced_regime
         if self._epsilon < THRESHOLD_EXHAUSTED:
             return PrivacyRegime.EXHAUSTED
-        if self._epsilon < THRESHOLD_HIGH_NOISE:
+        if self._epsilon < THRESHOLD_HIGH_NOISE or self._noise_multiplier > 1.0:
             return PrivacyRegime.HIGH_NOISE
         return PrivacyRegime.STANDARD
 
     @property
     def noise_scale(self) -> float:
         """
-        Laplace noise scale = sensitivity / epsilon_remaining.
-        Clipped at a maximum of 50 to prevent inf when epsilon -> 0.
+        Laplace noise scale = (sensitivity / epsilon_remaining) * noise_multiplier.
+        noise_multiplier jumps to 8.0 at Task 2 step 3 without burning epsilon.
+        Clipped at a maximum of 50.
         """
         eps = max(self._epsilon, 1e-6)
-        return min(SENSITIVITY / eps, 50.0)
+        return min((SENSITIVITY / eps) * self._noise_multiplier, 50.0)
 
     # ------------------------------------------------------------------
     # Core operations
@@ -162,12 +164,11 @@ class PrivacyEngine:
 
     def force_high_noise(self) -> None:
         """
-        Triggered by Task 2 at step 3 -- jumps regime to HIGH_NOISE
-        by draining epsilon to just below the threshold.
+        Triggered by Task 2 at step 3 -- multiplies noise scale by 8x
+        without draining epsilon, so budget_efficiency stays non-zero.
         Used only by the environment, not by the agent.
         """
-        if self._epsilon >= THRESHOLD_HIGH_NOISE:
-            self._epsilon = THRESHOLD_HIGH_NOISE - 0.01
+        self._noise_multiplier = 8.0
 
     def available_features(self) -> List[str]:
         """
@@ -202,7 +203,8 @@ class PrivacyEngine:
 
     def reset(self, seed: Optional[int] = None) -> None:
         """Reset budget and RNG -- called by env.reset(), not by the agent."""
-        self._epsilon = self._initial_epsilon
+        self._epsilon          = self._initial_epsilon
+        self._noise_multiplier = 1.0
         self._audit.clear()
         self._rng = np.random.default_rng(seed)
 

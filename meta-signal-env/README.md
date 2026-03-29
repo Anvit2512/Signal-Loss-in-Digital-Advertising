@@ -1,3 +1,17 @@
+---
+title: Meta-Signal
+emoji: 📡
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+tags:
+  - openenv
+  - advertising
+  - reinforcement-learning
+  - differential-privacy
+---
+
 # Meta-Signal: Privacy-Constrained Ad Budget Optimisation
 
 An RL environment where an AI agent manages advertising budget across three campaigns

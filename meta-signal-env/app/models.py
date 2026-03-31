@@ -12,7 +12,7 @@ Import order reflects data flow:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -56,9 +56,12 @@ class CampaignStats(BaseModel):
     placement:         str   = Field(description="Ad format: feed | reels | stories")
     impressions:       int   = Field(ge=0, description="Rows processed this step")
     spend:             float = Field(ge=0.0, description="Budget allocated this step ($)")
-    noisy_conversions: float = Field(description="True conversions + Laplace noise")
-    estimated_roas:    float = Field(description="noisy_conversions / spend; inf if spend=0")
-    ctr:               float = Field(ge=0.0, description="Click-through rate -- observable, no noise applied")
+    noisy_conversions:   float              = Field(description="True conversions + Laplace noise")
+    estimated_roas:      float              = Field(description="noisy_conversions / spend; inf if spend=0")
+    ctr:                 float              = Field(ge=0.0, description="Click-through rate -- observable, no noise applied")
+    confidence_interval: Tuple[float, float] = Field(
+        description="95% CI around noisy_conversions. Narrows when epsilon is high, widens as it depletes."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +85,14 @@ class Observation(BaseModel):
     regulatory_violation:  bool           = Field(
         default=False,
         description="True if the last action breached the feature limit"
+    )
+    audit_active:          bool           = Field(
+        default=False,
+        description="Task 4: regulatory audit is in progress"
+    )
+    flagged_campaign:      Optional[str]  = Field(
+        default=None,
+        description="Task 4: campaign suspended by regulator -- must receive zero spend"
     )
     warning:               Optional[str]  = Field(
         default=None,
@@ -108,9 +119,17 @@ class Action(BaseModel):
     attribution:    AttributionMethod = Field(
         default=AttributionMethod.LAST_CLICK
     )
-    feature_mask:   List[str] = Field(
+    feature_mask:       List[str]      = Field(
         default_factory=list,
         description="Feature names from I1-I13 / C1-C26. Each costs 0.05 epsilon."
+    )
+    halted_campaigns:   List[str]      = Field(
+        default_factory=list,
+        description="Task 4: campaigns the agent is halting per regulatory order."
+    )
+    legal_reason_code:  Optional[str]  = Field(
+        default=None,
+        description="Task 4: legal justification code e.g. GDPR_ART17, DPA_NOTICE, REGULATORY_HOLD."
     )
 
     @model_validator(mode="after")
@@ -178,10 +197,12 @@ class EpisodeState(BaseModel):
     epsilon_initial:      float
     epsilon_remaining:    float
     privacy_regime:       PrivacyRegime
-    regulatory_violations: int  = Field(ge=0, default=0)
+    regulatory_violations: int           = Field(ge=0, default=0)
     history:              List[StepResult] = Field(default_factory=list)
     final_score:          Optional[float]  = Field(default=None, ge=0.0, le=1.0)
     is_done:              bool             = False
+    audit_fired_at:       Optional[int]   = Field(default=None, description="Task 4: step when audit fired")
+    flagged_campaign:     Optional[str]   = Field(default=None, description="Task 4: suspended campaign")
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +235,7 @@ class TaskDefinition(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    task_id: int   = Field(ge=1, le=3)
+    task_id: int   = Field(ge=1, le=4)
     seed:    Optional[int] = Field(
         default=None,
         description="Fix the random start index for reproducible episodes"
@@ -227,7 +248,7 @@ class ResetRequest(BaseModel):
 
 
 class GraderRequest(BaseModel):
-    task_id: int = Field(ge=1, le=3)
+    task_id: int = Field(ge=1, le=4)
 
 
 # ---------------------------------------------------------------------------

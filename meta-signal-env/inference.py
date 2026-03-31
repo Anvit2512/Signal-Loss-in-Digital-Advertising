@@ -88,6 +88,18 @@ Strategy:
 - Task 1: Signal is clean. Identify the best campaign and concentrate spend there.
 - Task 2: Noise jumps at step 3. Use early steps to learn, then commit to best campaign.
 - Task 3: Only 1 feature allowed. Stay compliant -- violations destroy your score.
+- Task 4: Audit fires at step 5. When audit_active=true, send ZERO spend to
+  flagged_campaign immediately. Set legal_reason_code to "GDPR_ART17". Recover
+  ROAS using the remaining two campaigns.
+
+Task 4 action format (when audit is active):
+{
+  "allocations": {"camp_feed": 200, "camp_reels": 100, "camp_stories": 0},
+  "attribution": "last_click",
+  "feature_mask": ["I1"],
+  "halted_campaigns": ["camp_stories"],
+  "legal_reason_code": "GDPR_ART17"
+}
 """
 
 
@@ -109,6 +121,11 @@ def _format_obs(obs, step_n: int, total_steps: int, task_id: int) -> str:
         lines.append(f"\nWARNING: {obs.warning}")
     if obs.regulatory_violation:
         lines.append("WARNING: last step violated feature limit -- penalty applied")
+    if obs.audit_active and obs.flagged_campaign:
+        lines.append(
+            f"\nREGULATORY AUDIT ACTIVE: campaign '{obs.flagged_campaign}' is SUSPENDED."
+            " Set its allocation to 0 and include legal_reason_code: GDPR_ART17"
+        )
     budget_per_step = obs.total_budget_remaining / max(1, total_steps - step_n + 1)
     lines.append(f"\nSuggested spend this step: ${budget_per_step:.2f} total")
     lines.append(f"Max features allowed: {cfg.max_features}")
@@ -124,6 +141,8 @@ def _parse_action(content: str, max_features: int) -> Action:
             allocations=data.get("allocations", {c: 0.0 for c in CAMPAIGN_NAMES}),
             attribution=AttributionMethod(data.get("attribution", "last_click")),
             feature_mask=mask,
+            halted_campaigns=data.get("halted_campaigns", []),
+            legal_reason_code=data.get("legal_reason_code"),
         )
     except Exception:
         return Action(
@@ -189,7 +208,7 @@ def main() -> None:
     env    = MetaSignalEnv()
 
     results: Dict[str, GraderResult] = {}
-    for task_id in [1, 2, 3]:
+    for task_id in [1, 2, 3, 4]:
         cfg = TASK_CONFIGS[task_id]
         print(f"Running Task {task_id}: {cfg.name} ({cfg.max_steps} steps) ...")
         grade = _run_task(env, task_id, seed=42, client=client)

@@ -147,11 +147,16 @@ reward = (step_roas × 0.7) - (regulatory_penalty × 2.0) + (epsilon_fraction ×
 
 ## Baseline Scores
 
-| Task | Score | Model |
-|---|---|---|
-| Task 1 — Budget Optimisation | 0.4252 | llama-3.3-70b-versatile |
-| Task 2 — Noisy Signal Recovery | 0.5402 | llama-3.3-70b-versatile |
-| Task 3 — Privacy Frontier | 0.7233 | llama-3.3-70b-versatile |
+Reproducible scores from `python inference.py` with `seed=42`:
+
+| Task | Score | Model | API |
+|---|---|---|---|
+| Task 1 — Budget Optimisation | 0.4252 | llama-3.3-70b-versatile | Groq |
+| Task 2 — Noisy Signal Recovery | 0.5402 | llama-3.3-70b-versatile | Groq |
+| Task 3 — Privacy Frontier | 0.7233 | llama-3.3-70b-versatile | Groq |
+
+These gaps are intentional — a trained RL agent should score significantly higher,
+especially on Task 2 (signal recovery after noise jump) and Task 3 (compliance).
 
 ---
 

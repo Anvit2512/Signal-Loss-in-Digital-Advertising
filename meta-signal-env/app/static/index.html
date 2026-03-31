@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta-Signal // Ad Intelligence Terminal</title>
+<style>
+:root {
+  --bg:       #060b14;
+  --surface:  #0d1526;
+  --surface2: #111d33;
+  --border:   #1a3050;
+  --cyan:     #00d4ff;
+  --green:    #00ff88;
+  --red:      #ff3355;
+  --orange:   #ff8c42;
+  --purple:   #9b6bff;
+  --yellow:   #ffd166;
+  --text:     #c0d4ef;
+  --dim:      #3a5070;
+  --feed:     #00d4ff;
+  --reels:    #9b6bff;
+  --stories:  #ff8c42;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; overflow:hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+}
+
+/* ── BACKGROUND CANVAS ── */
+#bgc {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+}
+
+/* ── SCAN LINE OVERLAY ── */
+body::after {
+  content:'';
+  position:fixed; inset:0; z-index:2; pointer-events:none;
+  background: repeating-linear-gradient(
+    0deg, transparent 0px, transparent 2px,
+    rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+  );
+}
+
+.app {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column;
+  height:100vh; overflow:hidden;
+}
+
+/* ══════════════════════════════════
+   HEADER
+══════════════════════════════════ */
+header {
+  flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 20px;
+  background: rgba(6,11,20,0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+.logo {
+  font-size:1.3rem; font-weight:900; letter-spacing:.25em;
+  color:var(--cyan); text-shadow:0 0 20px rgba(0,212,255,.5);
+}
+.logo em { color:var(--text); font-style:normal; }
+
+.task-tabs { display:flex; gap:6px; }
+.ttab {
+  padding:5px 14px;
+  border:1px solid var(--border); border-radius:3px;
+  background:transparent; color:var(--dim);
+  cursor:pointer; font-family:inherit; font-size:.72rem;
+  letter-spacing:.1em; transition:all .18s;
+}
+.ttab:hover { border-color:var(--cyan); color:var(--cyan); }
+.ttab.on  { background:rgba(0,212,255,.08); border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 12px rgba(0,212,255,.2); }
+.ttab.t4  { border-color:var(--red); color:var(--red); }
+.ttab.t4.on { background:rgba(255,51,85,.08); box-shadow:0 0 12px rgba(255,51,85,.25); }
+
+.hdr-right { display:flex; align-items:center; gap:14px; }
+.regime-pill {
+  padding:3px 9px; border-radius:2px;
+  font-size:.65rem; letter-spacing:.12em; text-transform:uppercase;
+  border:1px solid; transition:all .3s;
+}
+.rp-standard    { border-color:var(--green);  color:var(--green);  background:rgba(0,255,136,.04); }
+.rp-high_noise  { border-color:var(--yellow); color:var(--yellow); background:rgba(255,209,102,.04); }
+.rp-minimal_data{ border-color:var(--orange); color:var(--orange); background:rgba(255,140,66,.04); }
+.rp-exhausted   { border-color:var(--red);    color:var(--red);    background:rgba(255,51,85,.04); }
+
+.hdr-stat { font-size:.72rem; color:var(--dim); }
+.hdr-stat span { color:var(--cyan); }
+
+/* ══════════════════════════════════
+   MAIN GRID  (left | center | right)
+══════════════════════════════════ */
+main {
+  flex:1; min-height:0;
+  display:grid;
+  grid-template-columns: 268px 1fr 284px;
+}
+
+/* ── SHARED PANEL ── */
+.panel {
+  border-right:1px solid var(--border);
+  overflow-y:auto; overflow-x:hidden;
+  padding:14px;
+  background:rgba(13,21,38,.6);
+}
+.panel:last-child { border-right:none; }
+.ptitle {
+  font-size:.6rem; letter-spacing:.2em; color:var(--dim);
+  text-transform:uppercase; margin-bottom:14px;
+  padding-bottom:7px; border-bottom:1px solid var(--border);
+}
+
+/* ── FORM CONTROLS ── */
+.cg { margin-bottom:18px; }
+.clabel {
+  font-size:.65rem; color:var(--dim); letter-spacing:.1em;
+  margin-bottom:5px; display:block;
+}
+.inp {
+  width:100%; padding:7px 9px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:3px; color:var(--text);
+  font-family:inherit; font-size:.78rem;
+  margin-bottom:7px; transition:border-color .2s;
+}
+.inp:focus { outline:none; border-color:var(--cyan); }
+
+.btn {
+  width:100%; padding:9px;
+  border:1px solid var(--border); border-radius:3px;
+  background:var(--surface2); color:var(--text);
+  font-family:inherit; font-size:.75rem; letter-spacing:.1em;
+  cursor:pointer; text-align:center; text-transform:uppercase;
+  transition:all .18s;
+}
+.btn:hover  { border-color:var(--cyan); color:var(--cyan); }
+.btn.prime  { border-color:var(--cyan);   color:var(--cyan);   background:rgba(0,212,255,.05); }
+.btn.prime:hover  { background:rgba(0,212,255,.14); box-shadow:0 0 14px rgba(0,212,255,.2); }
+.btn.go     { border-color:var(--green);  color:var(--green);  background:rgba(0,255,136,.04); }
+.btn.go:hover     { background:rgba(0,255,136,.13); box-shadow:0 0 14px rgba(0,255,136,.2); }
+.btn.danger { border-color:var(--red);    color:var(--red);    background:rgba(255,51,85,.05); }
+.btn:disabled { opacity:.25; cursor:not-allowed; }
+.btn-row { display:flex; gap:7px; }
+
+/* sliders */
+.sl-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.sl-tag { font-size:.68rem; width:52px; }
+.sl-tag.fd { color:var(--feed); }
+.sl-tag.rl { color:var(--reels); }
+.sl-tag.st { color:var(--stories); }
+
+input[type=range] {
+  flex:1; -webkit-appearance:none;
+  height:3px; background:var(--border); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px;
+  border-radius:50%; cursor:pointer;
+}
+input[type=range].fd::-webkit-slider-thumb { background:var(--feed);    box-shadow:0 0 7px var(--feed); }
+input[type=range].rl::-webkit-slider-thumb { background:var(--reels);   box-shadow:0 0 7px var(--reels); }
+input[type=range].st::-webkit-slider-thumb { background:var(--stories); box-shadow:0 0 7px var(--stories); }
+input[type=range].sp::-webkit-slider-thumb { background:var(--cyan);    box-shadow:0 0 7px var(--cyan); }
+
+.sl-val { font-size:.75rem; width:42px; text-align:right; color:var(--cyan); }
+
+/* feature pills */
+.feat-grid { display:flex; flex-wrap:wrap; gap:3px; max-height:88px; overflow-y:auto; }
+.fpill {
+  padding:2px 6px; font-size:.6rem;
+  border:1px solid var(--border); border-radius:2px;
+  cursor:pointer; color:var(--dim); transition:all .15s; user-select:none;
+}
+.fpill:hover  { border-color:var(--purple); color:var(--purple); }
+.fpill.sel    { border-color:var(--purple); background:rgba(155,107,255,.14); color:var(--purple); box-shadow:0 0 5px rgba(155,107,255,.25); }
+.fpill.locked { opacity:.18; cursor:not-allowed; }
+
+/* attribution toggle */
+.attr-tog { display:flex; border:1px solid var(--border); border-radius:3px; overflow:hidden; margin-top:4px; }
+.attr-opt {
+  flex:1; padding:6px; text-align:center; font-size:.66rem;
+  cursor:pointer; color:var(--dim); transition:all .18s; letter-spacing:.04em;
+}
+.attr-opt.on { background:rgba(0,212,255,.09); color:var(--cyan); }
+
+/* legal code */
+.legal-sel {
+  width:100%; padding:7px; background:var(--surface2);
+  border:1px solid var(--red); border-radius:3px;
+  color:var(--red); font-family:inherit; font-size:.7rem;
+}
+
+/* speed row */
+.spd-row { display:flex; align-items:center; gap:8px; font-size:.68rem; margin:8px 0; }
+.spd-row label { color:var(--dim); }
+
+/* ══════════════════════════════════
+   CENTER  PANEL
+══════════════════════════════════ */
+.center {
+  display:flex; flex-direction:column; overflow:hidden; padding:14px; gap:12px;
+  background:rgba(6,11,20,.3);
+}
+
+/* Campaign cards */
+.cards { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+
+.card {
+  background:rgba(11,18,34,.85);
+  border:1px solid var(--border); border-radius:6px;
+  padding:14px; position:relative; overflow:hidden;
+  transition:transform .1s, box-shadow .3s;
+}
+.card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:6px 6px 0 0;
+}
+.card.fd::before { background:var(--feed);    box-shadow:0 0 10px var(--feed); }
+.card.rl::before { background:var(--reels);   box-shadow:0 0 10px var(--reels); }
+.card.st::before { background:var(--stories); box-shadow:0 0 10px var(--stories); }
+
+@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.015);box-shadow:0 0 22px rgba(0,212,255,.25)} 100%{transform:scale(1)} }
+.card.pop { animation:pulse .45s ease-out; }
+
+@keyframes auditPulse { 0%,100%{box-shadow:0 0 8px rgba(255,51,85,.2)} 50%{box-shadow:0 0 24px rgba(255,51,85,.6)} }
+.card.suspended { border-color:var(--red); animation:auditPulse 1s infinite; }
+
+.card-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.cname { font-size:.7rem; letter-spacing:.15em; text-transform:uppercase; }
+.cname.fd { color:var(--feed); }
+.cname.rl { color:var(--reels); }
+.cname.st { color:var(--stories); }
+.pbadge { font-size:.58rem; padding:2px 5px; border-radius:2px; border:1px solid var(--border); color:var(--dim); }
+
+.roas-big { text-align:center; margin:8px 0; }
+.roas-num {
+  font-size:2rem; font-weight:900; letter-spacing:-.02em; transition:color .35s;
+}
+.roas-num.hi { color:var(--green);  text-shadow:0 0 18px rgba(0,255,136,.4); }
+.roas-num.md { color:var(--yellow); }
+.roas-num.lo { color:var(--red); }
+.roas-lbl { font-size:.58rem; color:var(--dim); letter-spacing:.18em; text-transform:uppercase; }
+
+/* CI bar */
+.ci-wrap {
+  position:relative; height:5px; background:var(--surface2);
+  border-radius:3px; margin:7px 0;
+}
+.ci-range {
+  position:absolute; height:100%; border-radius:3px;
+  background:rgba(155,107,255,.35); border:1px solid rgba(155,107,255,.5);
+}
+.ci-pin {
+  position:absolute; width:2px; height:9px; top:-2px;
+  background:var(--purple); border-radius:1px;
+}
+
+.srow { display:flex; justify-content:space-between; font-size:.66rem; margin-bottom:4px; color:var(--dim); }
+.sval { color:var(--text); }
+.spend-big { text-align:center; font-size:.82rem; color:var(--cyan); margin-top:6px; }
+
+.susp-ov {
+  position:absolute; inset:0; border-radius:6px;
+  background:rgba(255,51,85,.07);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.68rem; color:var(--red); letter-spacing:.2em; text-transform:uppercase;
+}
+
+/* privacy regime bar */
+.regime-bar {
+  padding:7px 12px; border-radius:4px; border:1px solid var(--border);
+  font-size:.68rem; display:flex; align-items:center; justify-content:space-between;
+  background:rgba(11,18,34,.7); flex-shrink:0;
+}
+.noise-dots { display:flex; gap:3px; align-items:center; }
+.ndot { width:6px; height:6px; border-radius:50%; background:var(--border); transition:all .3s; }
+
+/* ROAS chart */
+.chart-wrap { flex:1; min-height:0; display:flex; flex-direction:column; }
+.chart-hdr { font-size:.6rem; color:var(--dim); letter-spacing:.15em; text-transform:uppercase; margin-bottom:6px; }
+.chart-svg { flex:1; width:100%; min-height:100px; }
+
+/* ══════════════════════════════════
+   RIGHT PANEL
+══════════════════════════════════ */
+.eps-section { text-align:center; margin-bottom:16px; }
+.eps-lbl { font-size:.6rem; color:var(--dim); letter-spacing:.15em; margin-bottom:5px; }
+.eps-svg { width:110px; height:65px; margin:0 auto; display:block; }
+
+.mbar-wrap { height:7px; background:var(--surface2); border-radius:4px; overflow:hidden; margin:5px 0 12px; }
+.mbar { height:100%; border-radius:4px; transition:width .5s ease; }
+.mbar.eps-m { background:linear-gradient(90deg, var(--purple), var(--cyan)); }
+.mbar.bud-m { background:linear-gradient(90deg, var(--red), var(--green)); }
+
+.metric-row { display:flex; justify-content:space-between; font-size:.68rem; margin-bottom:5px; }
+.mk { color:var(--dim); }
+.mv { color:var(--cyan); }
+
+/* score */
+.score-big { text-align:center; font-size:2.8rem; font-weight:900; color:var(--cyan); text-shadow:0 0 22px rgba(0,212,255,.4); margin:6px 0; }
+.bd-row { display:flex; align-items:center; gap:7px; font-size:.65rem; margin-bottom:5px; }
+.bd-k { color:var(--dim); flex:1; }
+.bd-bwrap { flex:1.5; height:3px; background:var(--surface2); border-radius:2px; }
+.bd-b { height:100%; border-radius:2px; background:var(--cyan); transition:width .5s; }
+.bd-v { color:var(--cyan); width:34px; text-align:right; }
+
+/* audit alert */
+.audit-alert {
+  display:none; border:1px solid var(--red); border-radius:5px;
+  padding:10px; margin-bottom:12px; text-align:center;
+  background:rgba(255,51,85,.06);
+}
+.audit-alert.on { display:block; animation:auditPulse 1s infinite; }
+.aa-title { color:var(--red); font-size:.7rem; letter-spacing:.18em; text-transform:uppercase; margin-bottom:3px; }
+.aa-camp  { color:var(--text); font-size:.85rem; }
+.aa-sub   { color:var(--dim); font-size:.6rem; margin-top:3px; }
+
+/* step log */
+.step-log {
+  background:rgba(4,8,16,.9); border:1px solid var(--border);
+  border-radius:3px; padding:9px;
+  height:190px; overflow-y:auto;
+  font-size:.62rem; line-height:1.65;
+}
+.ll     { color:var(--dim); }
+.ll.ok  { color:var(--green); }
+.ll.wn  { color:var(--yellow); }
+.ll.er  { color:var(--red); }
+.ll.nfo { color:var(--cyan); }
+
+/* scrollbar */
+::-webkit-scrollbar { width:3px; height:3px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+/* ══════════════════════════════════
+   SIMULATE MODAL
+══════════════════════════════════ */
+#sim-modal {
+  display:none; position:fixed; inset:0; z-index:900;
+  background:rgba(6,11,20,.88); backdrop-filter:blur(8px);
+  align-items:center; justify-content:center;
+}
+#sim-modal.on { display:flex; }
+.sim-box {
+  width:min(820px,96vw); max-height:90vh;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.sim-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 18px; border-bottom:1px solid var(--border);
+  background:rgba(0,212,255,.04);
+}
+.sim-title { color:var(--cyan); font-size:.85rem; letter-spacing:.2em; font-weight:900; }
+.sim-close { cursor:pointer; color:var(--dim); font-size:1.1rem; padding:4px 8px; }
+.sim-close:hover { color:var(--red); }
+.sim-body { padding:18px; overflow-y:auto; flex:1; }
+.sim-controls {
+  display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px;
+  align-items:end; margin-bottom:16px;
+}
+.sim-field label { font-size:.6rem; color:var(--dim); letter-spacing:.12em; display:block; margin-bottom:5px; }
+.sim-sel, .sim-inp {
+  width:100%; padding:7px 9px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:3px; color:var(--text);
+  font-family:inherit; font-size:.78rem;
+}
+.sim-sel:focus, .sim-inp:focus { outline:none; border-color:var(--cyan); }
+.btn-sim { white-space:nowrap; }
+
+.sim-results { display:none; }
+.sim-results.on { display:block; }
+.sim-score-row {
+  display:flex; align-items:center; gap:18px;
+  padding:12px 16px; border-radius:6px; margin-bottom:14px;
+  background:rgba(0,212,255,.04); border:1px solid var(--border);
+}
+.sim-score-big { font-size:2.2rem; font-weight:900; color:var(--cyan); text-shadow:0 0 18px rgba(0,212,255,.4); }
+.sim-bd { flex:1; }
+.sim-bd-row { display:flex; align-items:center; gap:6px; font-size:.63rem; margin-bottom:4px; }
+.sim-bd-k { color:var(--dim); flex:1; }
+.sim-bd-bw { flex:1.5; height:3px; background:var(--surface2); border-radius:2px; }
+.sim-bd-b  { height:100%; border-radius:2px; background:var(--cyan); }
+.sim-bd-v  { color:var(--cyan); width:34px; text-align:right; }
+
+.sim-trace-hdr {
+  display:grid; font-size:.58rem; color:var(--dim); letter-spacing:.1em;
+  padding:4px 8px; border-bottom:1px solid var(--border);
+  grid-template-columns:32px 70px 70px 70px 60px 60px 1fr;
+}
+.sim-trace-body { max-height:320px; overflow-y:auto; }
+.sim-trace-row {
+  display:grid; font-size:.62rem;
+  padding:5px 8px; border-bottom:1px solid rgba(26,48,80,.5);
+  grid-template-columns:32px 70px 70px 70px 60px 60px 1fr;
+  transition:background .12s;
+}
+.sim-trace-row:hover { background:rgba(0,212,255,.04); }
+.str-step { color:var(--dim); }
+.str-roas.hi { color:var(--green); }
+.str-roas.md { color:var(--yellow); }
+.str-roas.lo { color:var(--red); }
+.str-oracle { color:var(--purple); }
+.str-eps { color:var(--cyan); }
+.str-pen { color:var(--red); font-size:.58rem; }
+.str-warn { color:var(--yellow); font-size:.57rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ══════════════════════════════════
+   AUDIT FLASH OVERLAY
+══════════════════════════════════ */
+#audit-flash {
+  display:none; position:fixed; inset:0; z-index:999; pointer-events:none;
+  background:rgba(255,51,85,.18);
+}
+@keyframes flashOut { 0%{opacity:1} 100%{opacity:0} }
+#audit-flash.on { display:block; animation:flashOut 1.8s ease-out forwards; }
+
+/* ══════════════════════════════════
+   MISC
+══════════════════════════════════ */
+.sep { border:none; border-top:1px solid var(--border); margin:12px 0; }
+.task-desc { font-size:.62rem; color:var(--dim); line-height:1.5; margin-top:6px; }
+.ti-row { display:flex; justify-content:space-between; font-size:.67rem; margin-bottom:4px; }
+.ti-k { color:var(--dim); }
+.ti-v { color:var(--text); }
+</style>
+</head>
+<body>
+<canvas id="bgc"></canvas>
+<div id="audit-flash"></div>
+
+<div class="app">
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header>
+  <div class="logo">META<em>SIGNAL</em></div>
+
+  <div class="task-tabs">
+    <button class="ttab on"  onclick="selTask(1)">TASK 1 // OPTIMISE</button>
+    <button class="ttab"     onclick="selTask(2)">TASK 2 // NOISE</button>
+    <button class="ttab"     onclick="selTask(3)">TASK 3 // PRIVACY</button>
+    <button class="ttab t4"  onclick="selTask(4)">TASK 4 // AUDIT</button>
+  </div>
+
+  <div class="hdr-right">
+    <button class="btn prime" style="padding:5px 14px;font-size:.68rem;letter-spacing:.12em" onclick="openSim()">⚡ SIMULATE</button>
+    <div class="hdr-stat">STEP <span id="h-step">—</span></div>
+    <div class="regime-pill rp-standard" id="h-regime">STANDARD</div>
+    <div class="hdr-stat">ε <span id="h-eps" style="color:var(--purple)">—</span></div>
+  </div>
+</header>
+
+<!-- ═══════════ SIMULATE MODAL ═══════════ -->
+<div id="sim-modal" onclick="simModalClick(event)">
+  <div class="sim-box">
+    <div class="sim-hdr">
+      <span class="sim-title">// SIMULATE — run a full episode with a built-in strategy</span>
+      <span class="sim-close" onclick="closeSim()">✕</span>
+    </div>
+    <div class="sim-body">
+      <div class="sim-controls">
+        <div class="sim-field">
+          <label>TASK</label>
+          <select class="sim-sel" id="sim-task">
+            <option value="1">Task 1 — Budget Optimisation</option>
+            <option value="2">Task 2 — Noisy Signal Recovery</option>
+            <option value="3">Task 3 — Privacy Frontier</option>
+            <option value="4">Task 4 — Adversarial Regulator</option>
+          </select>
+        </div>
+        <div class="sim-field">
+          <label>STRATEGY</label>
+          <select class="sim-sel" id="sim-strategy">
+            <option value="equal">equal — even 3-way split</option>
+            <option value="greedy">greedy — 80% to best signal</option>
+            <option value="conservative">conservative — 60/25/15 split</option>
+          </select>
+        </div>
+        <div class="sim-field">
+          <label>SEED</label>
+          <input class="sim-inp" type="number" id="sim-seed" value="42">
+        </div>
+        <button class="btn go btn-sim" id="sim-run-btn" onclick="runSim()">▶ RUN</button>
+      </div>
+      <div style="font-size:.6rem;color:var(--dim);margin-bottom:14px;line-height:1.6">
+        <b style="color:var(--cyan)">equal</b> — splits budget evenly every step, no adaptation. &nbsp;|&nbsp;
+        <b style="color:var(--cyan)">greedy</b> — picks whichever campaign had best noisy-conversion signal last step and sends 80% there (watch the correlation penalty fire). &nbsp;|&nbsp;
+        <b style="color:var(--cyan)">conservative</b> — 60/25/15 fixed mix, deliberately stays below 70% to avoid auction-overlap penalty, mirrors real media-buying portfolio rules.
+      </div>
+      <div class="sim-results" id="sim-results">
+        <div class="sim-score-row">
+          <div>
+            <div style="font-size:.58rem;color:var(--dim);letter-spacing:.15em;margin-bottom:3px">FINAL SCORE</div>
+            <div class="sim-score-big" id="sim-score-big">—</div>
+            <div style="font-size:.6rem;color:var(--dim)" id="sim-strategy-lbl"></div>
+          </div>
+          <div class="sim-bd" id="sim-breakdown"></div>
+        </div>
+        <div class="sim-trace-hdr">
+          <span>STEP</span><span>ROAS</span><span>ORACLE</span><span>REWARD</span><span>ε REM</span><span>PENALTY</span><span>WARNING</span>
+        </div>
+        <div class="sim-trace-body" id="sim-trace-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main>
+
+  <!-- ── LEFT CONTROLS ── -->
+  <div class="panel">
+    <div class="ptitle">// episode controls</div>
+
+    <div class="cg">
+      <label class="clabel">SEED (blank = random)</label>
+      <input class="inp" type="number" id="seed" value="42">
+      <button class="btn prime" onclick="doReset()">⟳ INITIALISE EPISODE</button>
+    </div>
+
+    <div class="cg">
+      <label class="clabel">BUDGET ALLOCATION</label>
+      <div class="sl-row">
+        <span class="sl-tag fd">FEED</span>
+        <input type="range" class="fd" id="sl-feed"    min="0" max="500" value="200" oninput="slChange('feed')">
+        <span class="sl-val" id="sv-feed">$200</span>
+      </div>
+      <div class="sl-row">
+        <span class="sl-tag rl">REELS</span>
+        <input type="range" class="rl" id="sl-reels"   min="0" max="500" value="100" oninput="slChange('reels')">
+        <span class="sl-val" id="sv-reels">$100</span>
+      </div>
+      <div class="sl-row">
+        <span class="sl-tag st">STORI</span>
+        <input type="range" class="st" id="sl-stories" min="0" max="500" value="100" oninput="slChange('stories')">
+        <span class="sl-val" id="sv-stories">$100</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.62rem;margin-top:3px">
+        <span style="color:var(--dim)">TOTAL</span>
+        <span><span id="alloc-tot" style="color:var(--cyan)">$400</span>
+              <span style="color:var(--dim)"> / </span>
+              <span id="alloc-cap" style="color:var(--dim)">$1000</span></span>
+      </div>
+    </div>
+
+    <div class="cg">
+      <label class="clabel">ATTRIBUTION</label>
+      <div class="attr-tog">
+        <div class="attr-opt on" id="ao-lc"   onclick="setAttr('last_click')">LAST CLICK</div>
+        <div class="attr-opt"    id="ao-prob" onclick="setAttr('probabilistic')">PROBABILISTIC +0.2ε</div>
+      </div>
+    </div>
+
+    <div class="cg">
+      <label class="clabel">FEATURE MASK <span id="fc-lbl" style="color:var(--purple)">(0 selected)</span></label>
+      <div class="feat-grid" id="feat-grid"></div>
+    </div>
+
+    <div class="cg" id="t4-ctrl" style="display:none">
+      <label class="clabel" style="color:var(--red)">⚠ LEGAL REASON CODE</label>
+      <select class="legal-sel" id="legal-code">
+        <option value="">-- select code --</option>
+        <option value="GDPR_ART17">GDPR_ART17 — Right to Erasure</option>
+        <option value="DPA_NOTICE">DPA_NOTICE — Data Protection Notice</option>
+        <option value="REGULATORY_HOLD">REGULATORY_HOLD — Regulatory Order</option>
+      </select>
+    </div>
+
+    <hr class="sep">
+
+    <div class="cg">
+      <div class="btn-row" style="margin-bottom:7px">
+        <button class="btn prime" id="step-btn" onclick="doStep()" disabled>▶ STEP</button>
+        <button class="btn" id="auto-btn" onclick="togAuto()" disabled>AUTO</button>
+      </div>
+      <div class="spd-row">
+        <label>SPEED</label>
+        <input type="range" class="sp" id="spd-sl" min="200" max="2000" value="900" step="100" oninput="spdChange()">
+        <span id="spd-val" style="color:var(--cyan)">0.9s</span>
+      </div>
+      <button class="btn go" id="grade-btn" onclick="doGrade()" disabled>✦ COMPUTE SCORE</button>
+    </div>
+  </div>
+
+  <!-- ── CENTER ── -->
+  <div class="center">
+
+    <!-- Campaign cards -->
+    <div class="cards" id="cards">
+      <!-- FEED -->
+      <div class="card fd" id="card-camp_feed">
+        <div class="card-hdr">
+          <span class="cname fd">FEED</span>
+          <span class="pbadge">FEED</span>
+        </div>
+        <div class="roas-big">
+          <div class="roas-num md" id="rn-camp_feed">—</div>
+          <div class="roas-lbl">EST. ROAS</div>
+        </div>
+        <div class="ci-wrap">
+          <div class="ci-range" id="ci-camp_feed" style="left:20%;right:20%"></div>
+          <div class="ci-pin"   id="cp-camp_feed" style="left:49%"></div>
+        </div>
+        <div class="srow"><span>NOISY CONV</span><span class="sval" id="nc-camp_feed">—</span></div>
+        <div class="srow"><span>CTR</span>       <span class="sval" id="ct-camp_feed">—</span></div>
+        <div class="srow"><span>IMPRESSIONS</span><span class="sval" id="im-camp_feed">—</span></div>
+        <div class="spend-big" id="sp-camp_feed">$—</div>
+      </div>
+
+      <!-- REELS -->
+      <div class="card rl" id="card-camp_reels">
+        <div class="card-hdr">
+          <span class="cname rl">REELS</span>
+          <span class="pbadge">REELS</span>
+        </div>
+        <div class="roas-big">
+          <div class="roas-num md" id="rn-camp_reels">—</div>
+          <div class="roas-lbl">EST. ROAS</div>
+        </div>
+        <div class="ci-wrap">
+          <div class="ci-range" id="ci-camp_reels" style="left:20%;right:20%"></div>
+          <div class="ci-pin"   id="cp-camp_reels" style="left:49%"></div>
+        </div>
+        <div class="srow"><span>NOISY CONV</span><span class="sval" id="nc-camp_reels">—</span></div>
+        <div class="srow"><span>CTR</span>       <span class="sval" id="ct-camp_reels">—</span></div>
+        <div class="srow"><span>IMPRESSIONS</span><span class="sval" id="im-camp_reels">—</span></div>
+        <div class="spend-big" id="sp-camp_reels">$—</div>
+      </div>
+
+      <!-- STORIES -->
+      <div class="card st" id="card-camp_stories">
+        <div class="card-hdr">
+          <span class="cname st">STORIES</span>
+          <span class="pbadge">STORIES</span>
+        </div>
+        <div class="roas-big">
+          <div class="roas-num md" id="rn-camp_stories">—</div>
+          <div class="roas-lbl">EST. ROAS</div>
+        </div>
+        <div class="ci-wrap">
+          <div class="ci-range" id="ci-camp_stories" style="left:20%;right:20%"></div>
+          <div class="ci-pin"   id="cp-camp_stories" style="left:49%"></div>
+        </div>
+        <div class="srow"><span>NOISY CONV</span><span class="sval" id="nc-camp_stories">—</span></div>
+        <div class="srow"><span>CTR</span>       <span class="sval" id="ct-camp_stories">—</span></div>
+        <div class="srow"><span>IMPRESSIONS</span><span class="sval" id="im-camp_stories">—</span></div>
+        <div class="spend-big" id="sp-camp_stories">$—</div>
+      </div>
+    </div>
+
+    <!-- Regime bar -->
+    <div class="regime-bar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="noise-dots" id="ndots">
+          <div class="ndot"></div><div class="ndot"></div>
+          <div class="ndot"></div><div class="ndot"></div><div class="ndot"></div>
+        </div>
+        <span style="font-size:.65rem;color:var(--dim)" id="regime-desc">Waiting for episode…</span>
+      </div>
+      <span style="font-size:.65rem;color:var(--dim)">
+        STEP <span id="rb-step" style="color:var(--cyan)">0</span>
+        / <span id="rb-total" style="color:var(--dim)">—</span>
+      </span>
+    </div>
+
+    <!-- ROAS chart -->
+    <div class="chart-wrap">
+      <div class="chart-hdr">// roas live feed — agent vs oracle</div>
+      <svg class="chart-svg" id="chart" viewBox="0 0 600 110" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00d4ff" stop-opacity=".35"/>
+            <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- grid -->
+        <line x1="0" y1="28"  x2="600" y2="28"  stroke="#1a3050" stroke-width=".5"/>
+        <line x1="0" y1="55"  x2="600" y2="55"  stroke="#1a3050" stroke-width=".5"/>
+        <line x1="0" y1="82"  x2="600" y2="82"  stroke="#1a3050" stroke-width=".5"/>
+        <!-- target line -->
+        <line x1="0" y1="55" x2="600" y2="55" stroke="#ff8c42" stroke-width="1"
+              stroke-dasharray="5,4" id="tgt-line"/>
+        <text x="5" y="51" fill="#ff8c42" font-size="7" font-family="monospace">TARGET</text>
+        <!-- fill + lines + points -->
+        <path id="c-fill"   fill="url(#ag)" d=""/>
+        <path id="c-line"   fill="none" stroke="#00d4ff" stroke-width="1.8"/>
+        <path id="c-oracle" fill="none" stroke="#9b6bff" stroke-width="1.2" stroke-dasharray="3,3"/>
+        <g id="c-pts"></g>
+        <!-- legend -->
+        <text x="595" y="11" fill="#00d4ff" font-size="7" font-family="monospace" text-anchor="end">AGENT</text>
+        <text x="595" y="21" fill="#9b6bff" font-size="7" font-family="monospace" text-anchor="end">ORACLE</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── RIGHT METRICS ── -->
+  <div class="panel">
+    <div class="ptitle">// performance metrics</div>
+
+    <!-- Audit alert -->
+    <div class="audit-alert" id="audit-alert">
+      <div class="aa-title">⚠ REGULATORY AUDIT</div>
+      <div class="aa-camp" id="aa-camp">Campaign suspended</div>
+      <div class="aa-sub">Set legal_reason_code and zero allocation</div>
+    </div>
+
+    <!-- Epsilon arc -->
+    <div class="eps-section">
+      <div class="eps-lbl">PRIVACY BUDGET ε</div>
+      <svg class="eps-svg" viewBox="0 0 110 65">
+        <defs>
+          <linearGradient id="eg" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="#9b6bff"/>
+            <stop offset="100%" stop-color="#00d4ff"/>
+          </linearGradient>
+        </defs>
+        <path d="M8,62 A47,47 0 0,1 102,62" fill="none" stroke="#1a3050" stroke-width="7" stroke-linecap="round"/>
+        <path d="M8,62 A47,47 0 0,1 102,62" fill="none" stroke="url(#eg)"
+              stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="148" id="eps-arc" stroke-dashoffset="0"/>
+        <text x="55" y="57" text-anchor="middle" fill="var(--text)"
+              font-size="17" font-family="monospace" font-weight="bold" id="eps-num">—</text>
+        <text x="55" y="66" text-anchor="middle" fill="#3a5070"
+              font-size="6" font-family="monospace">EPSILON</text>
+      </svg>
+    </div>
+
+    <div class="cg">
+      <div class="metric-row"><span class="mk">BUDGET REMAINING</span><span class="mv" id="bud-val">—</span></div>
+      <div class="mbar-wrap"><div class="mbar bud-m" id="bud-bar" style="width:100%"></div></div>
+      <div class="metric-row"><span class="mk">EPSILON REMAINING</span><span class="mv" id="eps-val" style="color:var(--purple)">—</span></div>
+      <div class="mbar-wrap"><div class="mbar eps-m" id="eps-bar" style="width:100%"></div></div>
+    </div>
+
+    <div class="cg">
+      <div class="metric-row"><span class="mk">LAST REWARD</span>  <span id="m-reward" class="mv">—</span></div>
+      <div class="metric-row"><span class="mk">ORACLE ROAS</span>  <span id="m-oracle" class="mv" style="color:var(--purple)">—</span></div>
+      <div class="metric-row"><span class="mk">VIOLATIONS</span>   <span id="m-viol"   class="mv">—</span></div>
+    </div>
+
+    <hr class="sep">
+
+    <!-- Score panel (shown after grader) -->
+    <div id="score-panel" style="display:none">
+      <div style="font-size:.6rem;color:var(--dim);letter-spacing:.15em">FINAL SCORE</div>
+      <div class="score-big" id="score-big">0.0000</div>
+      <div id="bd-list"></div>
+      <hr class="sep">
+    </div>
+
+    <!-- Task info -->
+    <div class="cg" id="task-info">
+      <div class="ptitle">// task parameters</div>
+      <div class="ti-row"><span class="ti-k">MAX STEPS</span>    <span class="ti-v" id="ti-steps">—</span></div>
+      <div class="ti-row"><span class="ti-k">TARGET ROAS</span>  <span class="ti-v" id="ti-roas">—</span></div>
+      <div class="ti-row"><span class="ti-k">MAX FEATURES</span> <span class="ti-v" id="ti-feats">—</span></div>
+      <div class="ti-row"><span class="ti-k">EPSILON</span>      <span class="ti-v" id="ti-eps">—</span></div>
+      <div class="ti-row"><span class="ti-k">BUDGET</span>       <span class="ti-v" id="ti-bud">—</span></div>
+      <div class="task-desc" id="ti-desc"></div>
+    </div>
+
+    <!-- Step log -->
+    <div class="ptitle" style="margin-top:4px">// step log</div>
+    <div class="step-log" id="step-log">
+      <div class="ll nfo">&gt; Meta-Signal terminal online</div>
+      <div class="ll">&gt; Select a task and initialise episode</div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+const API = window.location.origin;
+const S = {
+  task:1, attr:'last_click', feats:new Set(),
+  maxFeats:5, targetRoas:1.5,
+  budInit:1000, epInit:3.0,
+  budRem:1000, epRem:3.0,
+  totalSteps:10, step:0,
+  active:false, done:false,
+  auto:false, autoTmr:null,
+  roas:[], oracle:[],
+  flagged:null, audit:false,
+  violations:0, configs:{},
+};
+
+// ════════════════════════════════════════════
+// ANIMATED BACKGROUND
+// ════════════════════════════════════════════
+const bgc = document.getElementById('bgc');
+const bx  = bgc.getContext('2d');
+let pts = [];
+function initBg() {
+  bgc.width  = window.innerWidth;
+  bgc.height = window.innerHeight;
+  pts = Array.from({length:70}, () => ({
+    x: Math.random()*bgc.width,
+    y: Math.random()*bgc.height,
+    vx:(Math.random()-.5)*.25,
+    vy:(Math.random()-.5)*.25,
+    r: Math.random()*1.3+.4,
+    a: Math.random()*.35+.08,
+  }));
+}
+function drawBg() {
+  bx.clearRect(0,0,bgc.width,bgc.height);
+  // grid
+  bx.strokeStyle='rgba(26,48,80,.25)'; bx.lineWidth=.5;
+  for(let x=0;x<bgc.width;x+=64){bx.beginPath();bx.moveTo(x,0);bx.lineTo(x,bgc.height);bx.stroke();}
+  for(let y=0;y<bgc.height;y+=64){bx.beginPath();bx.moveTo(0,y);bx.lineTo(bgc.width,y);bx.stroke();}
+  // particles + connections
+  pts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=bgc.width; if(p.x>bgc.width)p.x=0;
+    if(p.y<0)p.y=bgc.height;if(p.y>bgc.height)p.y=0;
+    bx.beginPath();bx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bx.fillStyle=`rgba(0,212,255,${p.a})`;bx.fill();
+  });
+  bx.lineWidth=.25;
+  for(let i=0;i<pts.length;i++){
+    for(let j=i+1;j<pts.length;j++){
+      const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
+      if(d<90){
+        bx.strokeStyle=`rgba(0,212,255,${.12*(1-d/90)})`;
+        bx.beginPath();bx.moveTo(pts[i].x,pts[i].y);bx.lineTo(pts[j].x,pts[j].y);bx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(drawBg);
+}
+window.addEventListener('resize',initBg);
+initBg(); drawBg();
+
+// ════════════════════════════════════════════
+// FEATURE GRID
+// ════════════════════════════════════════════
+function buildFeats() {
+  const g = document.getElementById('feat-grid');
+  g.innerHTML='';
+  [...Array.from({length:13},(_,i)=>`I${i+1}`),...Array.from({length:26},(_,i)=>`C${i+1}`)].forEach(f=>{
+    const d=document.createElement('div');
+    d.className='fpill'; d.id=`fp-${f}`; d.textContent=f;
+    d.onclick=()=>togFeat(f);
+    g.appendChild(d);
+  });
+}
+function togFeat(f) {
+  const p=document.getElementById(`fp-${f}`);
+  if(!p||p.classList.contains('locked')) return;
+  if(S.feats.has(f)){ S.feats.delete(f); p.classList.remove('sel'); }
+  else {
+    if(S.feats.size>=S.maxFeats){ log(`MAX ${S.maxFeats} FEATURES ALLOWED`,'wn'); return; }
+    S.feats.add(f); p.classList.add('sel');
+  }
+  document.getElementById('fc-lbl').textContent=`(${S.feats.size}/${S.maxFeats} selected)`;
+}
+
+// ════════════════════════════════════════════
+// TASK SELECTION
+// ════════════════════════════════════════════
+async function loadTasks() {
+  try {
+    const r=await fetch(`${API}/tasks`);
+    (await r.json()).forEach(t=>S.configs[t.task_id]=t);
+    selTask(1);
+  } catch(e){ log('Failed to load tasks: '+e.message,'er'); }
+}
+function selTask(id) {
+  S.task=id;
+  document.querySelectorAll('.ttab').forEach((t,i)=>t.classList.toggle('on',i===id-1));
+  const c=S.configs[id];
+  if(!c) return;
+  S.maxFeats=c.max_features; S.targetRoas=c.target_roas;
+  S.totalSteps=c.max_steps;  S.budInit=c.initial_budget; S.epInit=c.initial_epsilon;
+  // task info
+  document.getElementById('ti-steps').textContent=c.max_steps;
+  document.getElementById('ti-roas').textContent=c.target_roas;
+  document.getElementById('ti-feats').textContent=c.max_features;
+  document.getElementById('ti-eps').textContent=c.initial_epsilon;
+  document.getElementById('ti-bud').textContent='$'+c.initial_budget;
+  document.getElementById('ti-desc').textContent=c.description;
+  document.getElementById('alloc-cap').textContent='$'+c.initial_budget;
+  // slider max
+  ['feed','reels','stories'].forEach(k=>document.getElementById(`sl-${k}`).max=c.initial_budget);
+  // task4 ctrl
+  document.getElementById('t4-ctrl').style.display=id===4?'block':'none';
+  // clear feats
+  S.feats.clear();
+  document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('sel','locked'));
+  document.getElementById('fc-lbl').textContent='(0 selected)';
+  // target line
+  setTargetLine(c.target_roas);
+  log(`Task ${id}: ${c.name}`,'nfo');
+}
+
+// ════════════════════════════════════════════
+// API
+// ════════════════════════════════════════════
+async function doReset() {
+  const seed=document.getElementById('seed').value.trim();
+  const body={task_id:S.task};
+  if(seed) body.seed=parseInt(seed);
+  try {
+    const r=await fetch(`${API}/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    const obs=await r.json();
+    S.active=true; S.done=false; S.roas=[]; S.oracle=[];
+    S.flagged=null; S.audit=false; S.violations=0;
+    S.budRem=obs.total_budget_remaining; S.epRem=obs.epsilon_remaining;
+    S.step=obs.step;
+    applyObs(obs);
+    clearChart();
+    document.getElementById('step-btn').disabled=false;
+    document.getElementById('auto-btn').disabled=false;
+    document.getElementById('grade-btn').disabled=true;
+    document.getElementById('score-panel').style.display='none';
+    document.getElementById('audit-alert').classList.remove('on');
+    // un-suspend all cards
+    ['camp_feed','camp_reels','camp_stories'].forEach(c=>{
+      const card=document.getElementById('card-'+c);
+      card.classList.remove('suspended');
+      card.querySelectorAll('.susp-ov').forEach(o=>o.remove());
+      document.getElementById(`sl-${c.replace('camp_','')}`).disabled=false;
+    });
+    document.getElementById('m-viol').textContent='0';
+    log(`Episode started — Task ${S.task} / Seed ${seed||'random'} / Budget $${obs.total_budget_remaining}`,'nfo');
+  } catch(e){ log('Reset error: '+e.message,'er'); }
+}
+
+async function doStep() {
+  if(!S.active||S.done) return;
+  const alloc={
+    camp_feed:    parseFloat(document.getElementById('sl-feed').value),
+    camp_reels:   parseFloat(document.getElementById('sl-reels').value),
+    camp_stories: parseFloat(document.getElementById('sl-stories').value),
+  };
+  if(S.flagged) alloc[S.flagged]=0;
+  const action={
+    allocations: alloc,
+    attribution: S.attr,
+    feature_mask: Array.from(S.feats),
+    halted_campaigns: S.flagged?[S.flagged]:[],
+    legal_reason_code: S.flagged?(document.getElementById('legal-code').value||null):null,
+  };
+  try {
+    const r=await fetch(`${API}/step`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(action)});
+    if(!r.ok){ const e=await r.json(); log('Step error: '+(e.detail||JSON.stringify(e)),'er'); return; }
+    const res=await r.json();
+    const obs=res.observation, inf=res.info;
+    S.step=obs.step; S.budRem=obs.total_budget_remaining; S.epRem=obs.epsilon_remaining;
+    S.roas.push(inf.step_roas); S.oracle.push(inf.oracle_roas);
+    // audit
+    if(obs.audit_active&&!S.audit){ S.audit=true; S.flagged=obs.flagged_campaign; fireAudit(obs.flagged_campaign); }
+    applyObs(obs);
+    updateChart();
+    // metrics
+    const rw=res.reward;
+    const rew=document.getElementById('m-reward');
+    rew.textContent=rw.toFixed(4); rew.style.color=rw>=0?'var(--green)':'var(--red)';
+    document.getElementById('m-oracle').textContent=inf.oracle_roas.toFixed(4);
+    if(obs.regulatory_violation){ S.violations++; document.getElementById('m-viol').textContent=S.violations; }
+    // pulse cards
+    ['camp_feed','camp_reels','camp_stories'].forEach(c=>{
+      const el=document.getElementById('card-'+c);
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    });
+    // log
+    const cls=inf.step_roas>=S.targetRoas?'ok':'wn';
+    log(`[${String(obs.step).padStart(2,'0')}] ROAS=${inf.step_roas.toFixed(3)} ε=${obs.epsilon_remaining.toFixed(3)} ${obs.privacy_regime.toUpperCase()} rwd=${rw.toFixed(3)}`,cls);
+    if(obs.regulatory_violation) log('  ⚠ REGULATORY VIOLATION','er');
+    if(obs.warning) log('  ⚠ '+obs.warning,'wn');
+    if(res.done){
+      S.done=true; stopAuto();
+      document.getElementById('step-btn').disabled=true;
+      document.getElementById('auto-btn').disabled=true;
+      document.getElementById('grade-btn').disabled=false;
+      log('Episode complete — click COMPUTE SCORE','nfo');
+    }
+  } catch(e){ log('Step failed: '+e.message,'er'); }
+}
+
+async function doGrade() {
+  try {
+    const r=await fetch(`${API}/grader`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:S.task})});
+    if(!r.ok) throw new Error(await r.text());
+    const g=await r.json();
+    document.getElementById('score-panel').style.display='block';
+    const sb=document.getElementById('score-big');
+    sb.textContent=g.score.toFixed(4);
+    sb.style.color=g.score>=.7?'var(--green)':g.score>=.4?'var(--yellow)':'var(--red)';
+    const blist=document.getElementById('bd-list');
+    blist.innerHTML=Object.entries(g.breakdown).map(([k,v])=>`
+      <div class="bd-row">
+        <span class="bd-k">${k.replace(/_/g,' ')}</span>
+        <div class="bd-bwrap"><div class="bd-b" style="width:${(v*100).toFixed(0)}%"></div></div>
+        <span class="bd-v">${v.toFixed(3)}</span>
+      </div>`).join('')
+      + (g.explanation ? `<div style="font-size:.6rem;color:var(--yellow);line-height:1.5;margin-top:8px;padding:7px 9px;border:1px solid rgba(255,209,102,.2);border-radius:3px;background:rgba(255,209,102,.04)">${g.explanation}</div>` : '');
+    log(`SCORE: ${g.score.toFixed(4)}`,g.score>=.5?'ok':'wn');
+    if(g.explanation) log('  '+g.explanation,'nfo');
+    Object.entries(g.breakdown).forEach(([k,v])=>log(`  ${k}: ${v.toFixed(4)}`,'nfo'));
+  } catch(e){ log('Grade error: '+e.message,'er'); }
+}
+
+// ════════════════════════════════════════════
+// AUTO
+// ════════════════════════════════════════════
+function togAuto() {
+  if(S.auto){ stopAuto(); }
+  else {
+    S.auto=true;
+    document.getElementById('auto-btn').textContent='■ STOP';
+    document.getElementById('auto-btn').classList.add('danger');
+    autoStep();
+  }
+}
+async function autoStep() {
+  if(!S.auto||S.done){ stopAuto(); return; }
+  await doStep();
+  if(!S.done) S.autoTmr=setTimeout(autoStep, parseInt(document.getElementById('spd-sl').value));
+}
+function stopAuto() {
+  S.auto=false; clearTimeout(S.autoTmr);
+  document.getElementById('auto-btn').textContent='AUTO';
+  document.getElementById('auto-btn').classList.remove('danger');
+}
+
+// ════════════════════════════════════════════
+// UI UPDATES
+// ════════════════════════════════════════════
+function applyObs(obs) {
+  // header
+  document.getElementById('h-step').textContent=`${obs.step}/${S.totalSteps}`;
+  document.getElementById('h-eps').textContent=obs.epsilon_remaining.toFixed(3);
+  const rp=document.getElementById('h-regime');
+  rp.textContent=obs.privacy_regime.replace('_',' ').toUpperCase();
+  rp.className='regime-pill rp-'+obs.privacy_regime;
+  // meters
+  const er=obs.epsilon_remaining/S.epInit;
+  const br=obs.total_budget_remaining/S.budInit;
+  document.getElementById('eps-bar').style.width=(er*100)+'%';
+  document.getElementById('bud-bar').style.width=(br*100)+'%';
+  document.getElementById('eps-val').textContent=obs.epsilon_remaining.toFixed(3);
+  document.getElementById('bud-val').textContent='$'+obs.total_budget_remaining.toFixed(0);
+  // epsilon arc  (dasharray=148)
+  document.getElementById('eps-arc').style.strokeDashoffset=148*(1-er);
+  document.getElementById('eps-num').textContent=obs.epsilon_remaining.toFixed(2);
+  // regime bar
+  const descs={standard:'Signal clean — noise minimal',high_noise:'Noise elevated — trust CI intervals',minimal_data:'Data minimisation — 1 feature max',exhausted:'Epsilon depleted — signal near random'};
+  document.getElementById('regime-desc').textContent=descs[obs.privacy_regime]||'';
+  document.getElementById('rb-step').textContent=obs.step;
+  document.getElementById('rb-total').textContent=S.totalSteps;
+  // noise dots
+  const lvl={standard:1,high_noise:3,minimal_data:2,exhausted:5};
+  const cols=['#00ff88','#00d4ff','#ffd166','#ff8c42','#ff3355'];
+  document.querySelectorAll('.ndot').forEach((d,i)=>{
+    const a=(lvl[obs.privacy_regime]||1);
+    d.style.background=i<a?cols[Math.min(i,cols.length-1)]:'var(--border)';
+    d.style.boxShadow=i<a?`0 0 6px ${cols[Math.min(i,cols.length-1)]}`:'none';
+  });
+  // campaign cards
+  (obs.campaigns||[]).forEach(cs=>{
+    const c=cs.campaign_id;
+    const rn=document.getElementById('rn-'+c);
+    rn.textContent=cs.estimated_roas.toFixed(3);
+    rn.className='roas-num '+(cs.estimated_roas>=S.targetRoas?'hi':cs.estimated_roas>=.5?'md':'lo');
+    document.getElementById('nc-'+c).textContent=cs.noisy_conversions.toFixed(2);
+    document.getElementById('ct-'+c).textContent=(cs.ctr*100).toFixed(2)+'%';
+    document.getElementById('im-'+c).textContent=cs.impressions;
+    document.getElementById('sp-'+c).textContent='$'+cs.spend.toFixed(0);
+    // CI
+    if(cs.confidence_interval&&cs.confidence_interval.length===2){
+      const [lo,hi]=cs.confidence_interval;
+      const span=Math.max(hi-lo,.01), cap=20;
+      const hw=Math.min(span/2/cap*100,48);
+      document.getElementById('ci-'+c).style.cssText=`left:${50-hw}%;right:${50-hw}%`;
+      document.getElementById('cp-'+c).style.left='49%';
+    }
+  });
+  // audit
+  if(obs.audit_active&&obs.flagged_campaign){
+    const card=document.getElementById('card-'+obs.flagged_campaign);
+    if(card&&!card.classList.contains('suspended')){
+      card.classList.add('suspended');
+      const ov=document.createElement('div');
+      ov.className='susp-ov'; ov.textContent='⛔ SUSPENDED';
+      card.appendChild(ov);
+      const k=obs.flagged_campaign.replace('camp_','');
+      const sl=document.getElementById('sl-'+k);
+      if(sl){sl.value=0;sl.disabled=true;slChange(k);}
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+// CHART
+// ════════════════════════════════════════════
+function clearChart(){
+  ['c-fill','c-line','c-oracle'].forEach(id=>document.getElementById(id).setAttribute('d',''));
+  document.getElementById('c-pts').innerHTML='';
+}
+function setTargetLine(t){
+  const y=105-(Math.min(t,4)/4)*95;
+  const ln=document.getElementById('tgt-line');
+  ln.setAttribute('y1',y);ln.setAttribute('y2',y);
+  const tx=ln.nextElementSibling;
+  if(tx){tx.setAttribute('y',y-4);}
+}
+function updateChart(){
+  const data=S.roas,oracle=S.oracle;
+  if(!data.length) return;
+  const W=600,H=105,P=8,maxR=4;
+  const n=data.length;
+  const xs=i=>P+i*(W-P*2)/Math.max(n-1,1);
+  const ys=v=>H-P-Math.min(v/maxR,1)*(H-P*2);
+  const line=data.map((v,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(' ');
+  document.getElementById('c-line').setAttribute('d',line);
+  document.getElementById('c-fill').setAttribute('d',line+` L${xs(n-1)},${H} L${xs(0)},${H} Z`);
+  if(oracle.length){
+    document.getElementById('c-oracle').setAttribute('d',
+      oracle.map((v,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(' '));
+  }
+  const pts=document.getElementById('c-pts');
+  pts.innerHTML=data.map((v,i)=>{
+    const col=v>=S.targetRoas?'#00ff88':v>=.5?'#ffd166':'#ff3355';
+    return `<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="3" fill="${col}" stroke="#060b14" stroke-width="1.5"/>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// AUDIT FLASH
+// ════════════════════════════════════════════
+function fireAudit(camp){
+  const f=document.getElementById('audit-flash');
+  f.className='on'; setTimeout(()=>f.className='',1800);
+  document.getElementById('audit-alert').classList.add('on');
+  document.getElementById('aa-camp').textContent='⛔ '+camp.toUpperCase().replace(/_/g,' ')+' SUSPENDED';
+  document.getElementById('t4-ctrl').style.display='block';
+  log('⚠ AUDIT FIRED — '+camp+' SUSPENDED','er');
+  log('  Set legal_reason_code to comply','wn');
+}
+
+// ════════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════════
+function slChange(k){
+  const v=parseFloat(document.getElementById('sl-'+k).value);
+  document.getElementById('sv-'+k).textContent='$'+v;
+  const tot=['feed','reels','stories'].reduce((s,c)=>s+parseFloat(document.getElementById('sl-'+c).value),0);
+  const totEl=document.getElementById('alloc-tot');
+  totEl.textContent='$'+tot;
+  const cap=parseFloat(document.getElementById('alloc-cap').textContent.replace('$',''));
+  totEl.style.color=tot>cap?'var(--red)':'var(--cyan)';
+}
+function setAttr(v){
+  S.attr=v;
+  document.getElementById('ao-lc').classList.toggle('on',v==='last_click');
+  document.getElementById('ao-prob').classList.toggle('on',v==='probabilistic');
+}
+function spdChange(){
+  const v=document.getElementById('spd-sl').value;
+  document.getElementById('spd-val').textContent=(v/1000).toFixed(1)+'s';
+}
+
+// ════════════════════════════════════════════
+// LOG
+// ════════════════════════════════════════════
+function log(msg,cls=''){
+  const el=document.getElementById('step-log');
+  const d=document.createElement('div');
+  d.className='ll '+(cls||''); d.textContent='> '+msg;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+  while(el.children.length>300) el.removeChild(el.firstChild);
+}
+
+// ════════════════════════════════════════════
+// SIMULATE MODAL
+// ════════════════════════════════════════════
+function openSim()  { document.getElementById('sim-modal').classList.add('on'); }
+function closeSim() { document.getElementById('sim-modal').classList.remove('on'); }
+function simModalClick(e) { if(e.target===document.getElementById('sim-modal')) closeSim(); }
+
+async function runSim() {
+  const btn = document.getElementById('sim-run-btn');
+  btn.disabled = true; btn.textContent = '… RUNNING';
+  document.getElementById('sim-results').classList.remove('on');
+  try {
+    const body = {
+      task_id:  parseInt(document.getElementById('sim-task').value),
+      strategy: document.getElementById('sim-strategy').value,
+      seed:     parseInt(document.getElementById('sim-seed').value) || 42,
+    };
+    const r = await fetch(`${API}/simulate`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    if(!r.ok){ const e=await r.json(); throw new Error(e.detail||JSON.stringify(e)); }
+    const res = await r.json();
+
+    // score
+    const sb = document.getElementById('sim-score-big');
+    sb.textContent = res.score.toFixed(4);
+    sb.style.color = res.score>=.7?'var(--green)':res.score>=.4?'var(--yellow)':'var(--red)';
+    document.getElementById('sim-strategy-lbl').textContent =
+      `Strategy: ${res.strategy.toUpperCase()}  ·  Task ${res.task_id}`;
+
+    // breakdown bars + explanation
+    const expl = res.grader.explanation
+      ? `<div style="font-size:.58rem;color:var(--yellow);line-height:1.5;margin-top:8px;padding:6px 8px;border:1px solid rgba(255,209,102,.2);border-radius:3px;background:rgba(255,209,102,.04)">${res.grader.explanation}</div>`
+      : '';
+    document.getElementById('sim-breakdown').innerHTML =
+      Object.entries(res.grader.breakdown).map(([k,v])=>`
+        <div class="sim-bd-row">
+          <span class="sim-bd-k">${k.replace(/_/g,' ')}</span>
+          <div class="sim-bd-bw"><div class="sim-bd-b" style="width:${(v*100).toFixed(0)}%"></div></div>
+          <span class="sim-bd-v">${v.toFixed(3)}</span>
+        </div>`).join('') + expl;
+
+    // trace rows
+    const targetRoas = S.configs[body.task_id]?.target_roas || 1.5;
+    document.getElementById('sim-trace-body').innerHTML = res.trace.map(t => {
+      const roasCls = t.step_roas >= targetRoas ? 'hi' : t.step_roas >= 0.5 ? 'md' : 'lo';
+      const penTxt  = t.correlation_penalty_active ? '⚡ CONC' : '';
+      const warnTxt = t.warning ? t.warning.split('|')[0].trim().substring(0,60) : '—';
+      return `<div class="sim-trace-row">
+        <span class="str-step">${String(t.step).padStart(2,'0')}</span>
+        <span class="str-roas ${roasCls}">${t.step_roas.toFixed(3)}</span>
+        <span class="str-oracle">${t.oracle_roas.toFixed(3)}</span>
+        <span class="str-roas ${t.reward>=0?'hi':'lo'}">${t.reward.toFixed(3)}</span>
+        <span class="str-eps">${t.epsilon_remaining.toFixed(3)}</span>
+        <span class="str-pen">${penTxt}</span>
+        <span class="str-warn">${warnTxt}</span>
+      </div>`;
+    }).join('');
+
+    document.getElementById('sim-results').classList.add('on');
+  } catch(e) { alert('Simulate error: '+e.message); }
+  finally { btn.disabled=false; btn.textContent='▶ RUN'; }
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+buildFeats();
+loadTasks();
+slChange('feed'); slChange('reels'); slChange('stories');
+</script>
+</body>
+</html>

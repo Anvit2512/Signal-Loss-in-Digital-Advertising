@@ -161,6 +161,13 @@ class StepInfo(BaseModel):
         description="Actual conversions per campaign -- for grader use only, hidden from agent"
     )
     budget_fraction_remaining: float = Field(ge=0.0, le=1.0)
+    correlation_penalty_active: bool = Field(
+        default=False,
+        description=(
+            "True when one campaign received >70% of spend, causing a 15% CTR "
+            "drop on the remaining campaigns (portfolio concentration penalty)."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -261,14 +268,69 @@ class GraderResult(BaseModel):
     Final score returned by POST /grader after an episode ends.
     Always in [0.0, 1.0] -- never binary.
     """
-    task_id:   int
-    score:     float = Field(ge=0.0, le=1.0)
-    breakdown: Dict[str, float] = Field(
+    task_id:     int
+    score:       float = Field(ge=0.0, le=1.0)
+    breakdown:   Dict[str, float] = Field(
         description="Per-component scores matching TaskDefinition.grader_weights"
     )
-    summary:   Dict[str, float] = Field(
+    summary:     Dict[str, float] = Field(
         description="Episode stats: avg_roas, violations, epsilon_used, steps_completed"
     )
+    explanation: str = Field(
+        default="",
+        description=(
+            "Human-readable one-sentence verdict describing what the agent did well "
+            "and where it lost points. Useful for non-technical review."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# SimulateRequest / SimulateStepTrace / SimulateResult -- POST /simulate
+# ---------------------------------------------------------------------------
+
+
+class SimulateRequest(BaseModel):
+    """
+    Body for POST /simulate.
+    Runs a full episode with a hardcoded built-in strategy and returns
+    the score + a step-by-step trace — no code required.
+    """
+    task_id:  int         = Field(ge=1, le=4)
+    strategy: str         = Field(
+        description=(
+            "Built-in policy to run. "
+            "Options: 'equal' (even split), "
+            "'greedy' (80% to best noisy signal), "
+            "'conservative' (60/25/15 fixed split, portfolio-safe)."
+        )
+    )
+    seed: Optional[int] = Field(
+        default=42,
+        description="Random seed for reproducibility."
+    )
+
+
+class SimulateStepTrace(BaseModel):
+    """One row in the step-by-step trace returned by /simulate."""
+    step:                       int
+    allocations:                Dict[str, float]
+    step_roas:                  float
+    oracle_roas:                float
+    epsilon_remaining:          float
+    privacy_regime:             str
+    reward:                     float
+    correlation_penalty_active: bool
+    warning:                    Optional[str]
+
+
+class SimulateResult(BaseModel):
+    """Full result from POST /simulate."""
+    task_id:  int
+    strategy: str
+    score:    float = Field(ge=0.0, le=1.0)
+    grader:   "GraderResult"
+    trace:    List[SimulateStepTrace]
 
 
 # ---------------------------------------------------------------------------

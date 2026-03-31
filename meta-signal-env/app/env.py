@@ -196,6 +196,39 @@ class MetaSignalEnv:
             c: true_conversions[c] / max(impressions[c], 1)
             for c in CAMPAIGN_NAMES
         }
+
+        # --- Market shift (Task 2, step 9+): camp_reels CVR temporarily doubles ---
+        # Fires from the 9th action onward (step counter == 8 before increment).
+        # An agent that preserved epsilon budget can still read the noisy signal;
+        # one that burned through epsilon is flying blind.
+        market_shift_active = (
+            self._state.task_id == 2
+            and self._state.step >= 8
+        )
+        if market_shift_active:
+            true_cvr["camp_reels"] = true_cvr["camp_reels"] * 2.0
+            # Keep true_conversions consistent so noisy signal reflects the shift
+            true_conversions["camp_reels"] = int(
+                true_conversions["camp_reels"] * 2.0
+            )
+
+        # --- Correlation penalty: >70% spend concentration drops other campaigns' CTR by 15% ---
+        # Mirrors real auction dynamics where aggressive Feed bidding wins the same
+        # user twice, suppressing Reels/Stories performance.  Forces portfolio balance
+        # and makes the naive "put everything on camp_feed" answer subtly wrong.
+        correlation_penalty_active = False
+        if actual_spend > 0:
+            camp_shares = {
+                c: allocations.get(c, 0.0) / actual_spend for c in CAMPAIGN_NAMES
+            }
+            dominant_camp = max(camp_shares, key=camp_shares.get)
+            if camp_shares[dominant_camp] > 0.70:
+                correlation_penalty_active = True
+                for c in CAMPAIGN_NAMES:
+                    if c != dominant_camp:
+                        true_cvr[c] = true_cvr[c] * 0.85
+                        true_conversions[c] = int(true_conversions[c] * 0.85)
+
         revenue: Dict[str, float] = {
             c: allocations.get(c, 0.0) * true_cvr[c] * ROAS_MULTIPLIER
             for c in CAMPAIGN_NAMES
@@ -269,6 +302,12 @@ class MetaSignalEnv:
             )
         elif self._privacy.regime == PrivacyRegime.HIGH_NOISE:
             warning = "Privacy update active -- noise level elevated"
+        if market_shift_active:
+            shift_msg = "Market shift: camp_reels CVR spiked (viral trend) -- consider reallocating"
+            warning = shift_msg if warning is None else f"{warning} | {shift_msg}"
+        if correlation_penalty_active:
+            penalty_msg = "Concentration penalty active: >70% spend on one campaign depresses other campaigns' CTR by 15%"
+            warning = penalty_msg if warning is None else f"{warning} | {penalty_msg}"
 
         audit_now_active = (
             self._state.task_id == 4
@@ -296,6 +335,7 @@ class MetaSignalEnv:
             regulatory_penalty=round(penalty, 6),
             true_conversions=true_conversions,
             budget_fraction_remaining=round(budget_fraction, 6),
+            correlation_penalty_active=correlation_penalty_active,
         )
 
         result = StepResult(observation=obs, reward=round(reward, 6), done=done, info=info)

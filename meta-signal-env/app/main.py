@@ -20,24 +20,30 @@ GET  /                web UI (HTML)
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.env import MetaSignalEnv
 from app.models import (
     Action,
+    AttributionMethod,
     BaselineResult,
     EpisodeState,
     GraderRequest,
     GraderResult,
     Observation,
     ResetRequest,
+    SimulateRequest,
+    SimulateResult,
+    SimulateStepTrace,
     StepResult,
     TaskDefinition,
 )
-from app.tasks import TASK_CONFIGS
+from app.tasks import TASK_CONFIGS, get_task_config
 
 # ---------------------------------------------------------------------------
 # App + shared state
@@ -55,6 +61,11 @@ app = FastAPI(
 
 _env  = MetaSignalEnv()
 _lock = threading.Lock()
+
+# Mount static files (index.html, CSS, JS)
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +158,136 @@ def grader(request: GraderRequest) -> GraderResult:
 
 
 # ---------------------------------------------------------------------------
+# Simulate
+# ---------------------------------------------------------------------------
+
+_VALID_STRATEGIES = frozenset({"equal", "greedy", "conservative"})
+_CAMPAIGNS        = ["camp_feed", "camp_reels", "camp_stories"]
+
+
+def _build_allocations(
+    strategy:       str,
+    per_step_budget: float,
+    obs_campaigns:   list,
+    greedy_best:     list,  # mutable single-element list so we can update state
+) -> dict:
+    """
+    Return allocations dict for one step given a strategy.
+
+    equal        — even three-way split.
+    greedy       — 80% to best noisy-signal campaign, 10% each to the others.
+                   Picks the best campaign freshly each step from the observation.
+    conservative — fixed 60 / 25 / 15 split (feed / reels / stories), stays
+                   below the 70% concentration threshold to avoid the
+                   correlation penalty.
+    """
+    if strategy == "equal":
+        share = per_step_budget / 3.0
+        return {c: share for c in _CAMPAIGNS}
+
+    if strategy == "greedy":
+        # Update best from current noisy signal if we have observations
+        if obs_campaigns:
+            best = max(obs_campaigns, key=lambda c: c.noisy_conversions)
+            greedy_best[0] = best.campaign_id
+        best_camp = greedy_best[0]
+        alloc = {c: per_step_budget * 0.10 for c in _CAMPAIGNS}
+        alloc[best_camp] = per_step_budget * 0.80
+        return alloc
+
+    # conservative
+    return {
+        "camp_feed":    per_step_budget * 0.60,
+        "camp_reels":   per_step_budget * 0.25,
+        "camp_stories": per_step_budget * 0.15,
+    }
+
+
+@app.post("/simulate", response_model=SimulateResult, tags=["environment"])
+def simulate(request: SimulateRequest) -> SimulateResult:
+    """
+    Run a complete episode with a built-in hardcoded strategy.
+
+    No coding required — pick a strategy string and get back the full score
+    and a step-by-step trace.  Useful for exploring the environment behaviour
+    and baseline comparisons without writing an agent.
+
+    **Strategies**
+    - `equal`        — even budget split across all three campaigns every step.
+    - `greedy`       — 80% to whichever campaign had the best noisy signal last step.
+    - `conservative` — fixed 60/25/15 split (Feed/Reels/Stories), deliberately
+                        staying below the 70% concentration threshold to avoid
+                        the auction-overlap correlation penalty.
+    """
+    if request.strategy not in _VALID_STRATEGIES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown strategy '{request.strategy}'. "
+                f"Valid options: {sorted(_VALID_STRATEGIES)}"
+            ),
+        )
+
+    # Use a fresh env so we never clobber the shared episode state
+    sim_env = MetaSignalEnv()
+    cfg     = get_task_config(request.task_id)
+    obs     = sim_env.reset(task_id=request.task_id, seed=request.seed)
+
+    trace:        list[SimulateStepTrace] = []
+    greedy_best   = ["camp_feed"]   # mutable state for greedy tracker
+
+    while not sim_env.state().is_done:
+        state          = sim_env.state()
+        steps_left     = max(1, cfg.max_steps - state.step)
+        per_step_budget = obs.total_budget_remaining / steps_left
+
+        allocations = _build_allocations(
+            request.strategy, per_step_budget, obs.campaigns, greedy_best
+        )
+
+        # Task 4: honour the suspension
+        if state.task_id == 4 and state.audit_fired_at is not None and state.flagged_campaign:
+            allocations[state.flagged_campaign] = 0.0
+
+        features = ["I1"] if cfg.max_features >= 1 else []
+        action   = Action(
+            allocations=allocations,
+            attribution=AttributionMethod.LAST_CLICK,
+            feature_mask=features,
+            legal_reason_code=(
+                "REGULATORY_HOLD"
+                if state.task_id == 4 and state.audit_fired_at is not None
+                else None
+            ),
+        )
+
+        result = sim_env.step(action)
+        obs    = result.observation
+
+        trace.append(SimulateStepTrace(
+            step=obs.step,
+            allocations=allocations,
+            step_roas=result.info.step_roas,
+            oracle_roas=result.info.oracle_roas,
+            epsilon_remaining=obs.epsilon_remaining,
+            privacy_regime=obs.privacy_regime.value,
+            reward=result.reward,
+            correlation_penalty_active=result.info.correlation_penalty_active,
+            warning=obs.warning,
+        ))
+
+    grader_result = sim_env.compute_final_score()
+
+    return SimulateResult(
+        task_id=request.task_id,
+        strategy=request.strategy,
+        score=grader_result.score,
+        grader=grader_result,
+        trace=trace,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Baseline
 # ---------------------------------------------------------------------------
 
@@ -167,56 +308,13 @@ def baseline() -> BaselineResult:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-# ---------------------------------------------------------------------------
 # Web UI
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse, tags=["system"])
 def web() -> str:
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Meta-Signal Environment</title>
-  <style>
-    body { font-family: monospace; max-width: 720px; margin: 40px auto; padding: 0 20px; }
-    h1   { border-bottom: 2px solid #333; padding-bottom: 8px; }
-    a    { color: #0066cc; }
-    .tag { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
-    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
-    td, th { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
-    th { background: #f5f5f5; }
-  </style>
-</head>
-<body>
-  <h1>Meta-Signal</h1>
-  <p>Privacy-constrained ad budget optimisation environment.<br>
-     An agent allocates budget across three campaigns using only noisy,
-     aggregated conversion signals — exactly how Meta's real ad system
-     works after signal loss.</p>
-
-  <h2>Endpoints</h2>
-  <table>
-    <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
-    <tr><td>GET</td> <td><a href="/tasks">/tasks</a></td>    <td>All task definitions</td></tr>
-    <tr><td>POST</td><td>/reset</td>   <td>Start new episode</td></tr>
-    <tr><td>POST</td><td>/step</td>    <td>Submit action, get observation</td></tr>
-    <tr><td>GET</td> <td><a href="/state">/state</a></td>    <td>Current episode state</td></tr>
-    <tr><td>POST</td><td>/grader</td>  <td>Compute final score (0.0-1.0)</td></tr>
-    <tr><td>POST</td><td>/baseline</td><td>Run GPT-4o-mini baseline</td></tr>
-    <tr><td>GET</td> <td><a href="/docs">/docs</a></td>      <td>Interactive API docs</td></tr>
-    <tr><td>GET</td> <td><a href="/health">/health</a></td>  <td>Liveness probe</td></tr>
-  </table>
-
-  <h2>Tasks</h2>
-  <table>
-    <tr><th>ID</th><th>Name</th><th>Steps</th><th>Target ROAS</th><th>Max Features</th></tr>
-    <tr><td>1</td><td>Budget Optimisation</td>   <td>10</td><td>1.5</td><td>5</td></tr>
-    <tr><td>2</td><td>Noisy Signal Recovery</td> <td>15</td><td>1.5</td><td>3</td></tr>
-    <tr><td>3</td><td>Privacy Frontier</td>      <td>15</td><td>1.0</td><td>1</td></tr>
-  </table>
-
-  <p><a href="/docs">Full API documentation (Swagger UI)</a></p>
-</body>
-</html>
-"""
+    """Serve the terminal-style dashboard frontend."""
+    html_file = Path(__file__).parent / "static" / "index.html"
+    if html_file.exists():
+        return html_file.read_text()
+    return "<h1>Meta-Signal</h1><p><a href='/docs'>API Docs</a></p>"

@@ -46,7 +46,11 @@ TASK_CONFIGS: Dict[int, TaskDefinition] = {
         description=(
             "Three campaigns with different conversion rates are visible under "
             "standard (low) noise. Learn within 10 steps that camp_feed has the "
-            "highest ROAS and progressively shift budget toward it."
+            "highest ROAS and progressively shift budget toward it. "
+            "Caution: if more than 70% of spend is concentrated on a single "
+            "campaign, the other campaigns suffer a 15% CTR drop due to auction "
+            "overlap (correlation_penalty). Optimal play requires portfolio balance, "
+            "not pure concentration."
         ),
         max_steps=10,
         initial_budget=1000.0,
@@ -62,8 +66,12 @@ TASK_CONFIGS: Dict[int, TaskDefinition] = {
         description=(
             "Starts in standard mode. At step 3 a privacy update fires and noise "
             "jumps dramatically. Use early observations to infer which campaign "
-            "still performs, then maintain ROAS above target for the remaining 12 "
-            "steps using only high-noise aggregated signals."
+            "still performs, then maintain ROAS above target for the remaining steps "
+            "using only high-noise aggregated signals. "
+            "Second event at step 9: a viral trend causes camp_reels CVR to double. "
+            "An agent that preserved epsilon budget can detect this shift in the "
+            "noisy signal and reallocate; one that burned through epsilon early is "
+            "flying blind and will miss the opportunity."
         ),
         max_steps=15,
         initial_budget=1000.0,
@@ -157,33 +165,51 @@ def _roas_score(avg_roas: float, target_roas: float) -> float:
 def _allocation_trend_score(
     alloc_history: List[Dict[str, float]],
     target_camp: str = "camp_feed",
-) -> float:
+) -> tuple[float, float, float, float]:
     """
-    Score for whether allocations progressively shifted toward target_camp.
+    Score for a genuine explore → learn → exploit allocation arc.
 
-    Compares the target camp's budget share in the first half of the episode
-    vs the second half. Score = 1.0 if second-half share >= 0.7 of total.
-    Score = 0.0 if share never changes.
+    Splits the episode into three phases (based on Task 1's 10-step structure):
+      Phase 1  steps 1-3   exploration  -- share should be LOW  (< 0.50)
+      Phase 2  steps 4-7   learning     -- share should be RISING vs phase 1
+      Phase 3  steps 8-10  exploitation -- share should be HIGH  (>= 0.70)
+
+    Penalises the naive "100% camp_feed from step 1" strategy (reckless early
+    concentration) and rewards the arc a real smart bidder would follow.
+
+    Returns (total_score, explore_score, learn_score, exploit_score).
     """
     if len(alloc_history) < 2:
-        return 0.0
+        return 0.0, 0.0, 0.0, 0.0
 
     shares = []
     for alloc in alloc_history:
         total = sum(alloc.values())
-        if total <= 0:
-            shares.append(0.0)
-        else:
-            shares.append(alloc.get(target_camp, 0.0) / total)
+        shares.append(alloc.get(target_camp, 0.0) / total if total > 0 else 0.0)
 
-    mid = len(shares) // 2
-    first_half_avg = float(np.mean(shares[:mid])) if mid > 0 else 0.0
-    second_half_avg = float(np.mean(shares[mid:])) if shares[mid:] else 0.0
+    p1 = shares[:3]          # steps 1-3  (exploration)
+    p2 = shares[3:7]         # steps 4-7  (learning)
+    p3 = shares[7:]          # steps 8-10 (exploitation)
 
-    # Reward final share magnitude and upward trend
-    share_score  = min(1.0, second_half_avg / 0.7)   # 0.7 share = full score
-    trend_bonus  = min(0.2, max(0.0, second_half_avg - first_half_avg))
-    return min(1.0, share_score + trend_bonus)
+    avg1 = float(np.mean(p1)) if p1 else 0.0
+    avg2 = float(np.mean(p2)) if p2 else avg1
+    avg3 = float(np.mean(p3)) if p3 else avg2
+
+    # Exploration: reward spreading budget early.
+    # 1.0 when avg share ≤ 0.40; decays linearly to 0 at 0.80.
+    explore_s = float(max(0.0, min(1.0, (0.80 - avg1) / 0.40)))
+
+    # Learning: reward a meaningful upward shift from phase 1 → phase 2.
+    # Full score for a 0.20 rise; proportional credit for smaller rises.
+    rise = avg2 - avg1
+    learn_s = float(min(1.0, max(0.0, rise / 0.20)))
+
+    # Exploitation: reward decisive concentration in the final phase.
+    # 0.70 share = full score.
+    exploit_s = float(min(1.0, avg3 / 0.70))
+
+    total = explore_s * 0.25 + learn_s * 0.35 + exploit_s * 0.40
+    return round(total, 4), round(explore_s, 4), round(learn_s, 4), round(exploit_s, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -198,14 +224,30 @@ def grade_task1(
     Task 1 -- Budget Optimisation
 
     60% -- how close is agent ROAS to target ROAS?
-    40% -- did budget allocation progressively shift toward camp_feed?
+    40% -- did the agent follow a genuine explore → learn → exploit arc?
+             (25% explore-phase restraint, 35% learning rise, 40% exploit concentration)
     """
     cfg = TASK_CONFIGS[1]
-    avg_roas   = _avg_step_roas(state)
-    roas_s     = _roas_score(avg_roas, cfg.target_roas)
-    trend_s    = _allocation_trend_score(alloc_history, "camp_feed")
+    avg_roas                          = _avg_step_roas(state)
+    roas_s                            = _roas_score(avg_roas, cfg.target_roas)
+    trend_s, explore_s, learn_s, exploit_s = _allocation_trend_score(alloc_history, "camp_feed")
 
     score = roas_s * 0.6 + trend_s * 0.4
+
+    # --- Explanation ---
+    roas_verdict = (
+        f"ROAS {avg_roas:.2f}x exceeded target" if avg_roas >= cfg.target_roas
+        else f"ROAS {avg_roas:.2f}x fell short of {cfg.target_roas}x target"
+    )
+    if explore_s < 0.4:
+        arc_verdict = "concentrated on camp_feed too early (no exploration), sacrificing the learning arc"
+    elif learn_s < 0.3:
+        arc_verdict = "explored but failed to shift budget upward in the learning phase"
+    elif exploit_s < 0.5:
+        arc_verdict = "explored and learned but did not concentrate decisively in the final steps"
+    else:
+        arc_verdict = "followed a proper explore→learn→exploit arc toward camp_feed"
+    explanation = f"Agent {arc_verdict}; {roas_verdict} (trend={trend_s:.2f})."
 
     return GraderResult(
         task_id=1,
@@ -220,7 +262,11 @@ def grade_task1(
             "violations":       float(state.regulatory_violations),
             "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
             "steps_completed":  float(state.step),
+            "explore_score":    explore_s,
+            "learn_score":      learn_s,
+            "exploit_score":    exploit_s,
         },
+        explanation=explanation,
     )
 
 
@@ -260,6 +306,28 @@ def grade_task2(
 
     score = proximity_s * 0.5 + efficiency_s * 0.3 + clean_s * 0.2
 
+    # --- Explanation ---
+    eps_used  = round(state.epsilon_initial - state.epsilon_remaining, 2)
+    eps_frac  = eps_used / max(state.epsilon_initial, 1e-9)
+    budget_verdict = (
+        "preserved epsilon budget well" if efficiency_s >= 0.5
+        else f"spent {eps_frac*100:.0f}% of epsilon budget early, degrading late-episode signal"
+    )
+    prox_verdict = (
+        "tracked the oracle closely" if proximity_s >= 0.7
+        else "partially tracked the oracle" if proximity_s >= 0.4
+        else "lost track of the oracle signal after the noise jump"
+    )
+    viol_clause = (
+        "" if state.regulatory_violations == 0
+        else f"; {state.regulatory_violations} regulatory violation(s) cost {round((1.0 - clean_s) * 0.2, 2):.2f} pts on clean_run"
+    )
+    explanation = (
+        f"Agent {budget_verdict} and {prox_verdict} "
+        f"through the step-3 noise event and step-9 market shift "
+        f"(oracle_proximity={proximity_s:.2f}, budget_efficiency={efficiency_s:.2f}){viol_clause}."
+    )
+
     return GraderResult(
         task_id=2,
         score=round(min(1.0, max(0.0, score)), 4),
@@ -275,6 +343,7 @@ def grade_task2(
             "epsilon_used":      round(state.epsilon_initial - state.epsilon_remaining, 4),
             "steps_completed":   float(state.step),
         },
+        explanation=explanation,
     )
 
 
@@ -308,12 +377,31 @@ def grade_task3(
 
     score = roas_s * 0.4 + compliance_s * 0.4 + epsilon_s * 0.2
 
+    # --- Explanation ---
+    compliance_verdict = (
+        "stayed fully compliant with the one-feature data minimisation order"
+        if compliance_s >= 0.95
+        else f"complied on {compliance_s*100:.0f}% of steps (violated {state.regulatory_violations}x)"
+        if compliance_s >= 0.5
+        else f"frequently breached the one-feature limit ({state.regulatory_violations} violations)"
+    )
+    roas_verdict = (
+        f"maintained ROAS above the {cfg.target_roas}x target ({avg_roas:.2f}x avg)"
+        if avg_roas >= cfg.target_roas
+        else f"fell below the {cfg.target_roas}x ROAS target (avg {avg_roas:.2f}x)"
+    )
+    eps_clause = f"{epsilon_s*100:.0f}% of privacy budget preserved at episode end"
+    explanation = (
+        f"Agent {compliance_verdict} and {roas_verdict}; {eps_clause} "
+        f"(compliance={compliance_s:.2f}, roas_score={roas_s:.2f})."
+    )
+
     return GraderResult(
         task_id=3,
         score=round(min(1.0, max(0.0, score)), 4),
         breakdown={
-            "roas_score":       round(roas_s, 4),
-            "compliance_score": round(compliance_s, 4),
+            "roas_score":        round(roas_s, 4),
+            "compliance_score":  round(compliance_s, 4),
             "epsilon_remaining": round(epsilon_s, 4),
         },
         summary={
@@ -324,6 +412,7 @@ def grade_task3(
             "compliance_rate":  round(compliance_s, 4),
             "steps_completed":  float(state.step),
         },
+        explanation=explanation,
     )
 
 
@@ -391,6 +480,38 @@ def grade_task4(
         + legal_code_quality_s * 0.30
     )
 
+    # --- Explanation ---
+    if audit_at is None:
+        explanation = (
+            "Regulatory audit never fired (episode ended before step 5); "
+            "all grader components defaulted — run a full 20-step episode to score properly."
+        )
+    else:
+        compliance_verdict = (
+            "fully halted the flagged campaign"
+            if audit_compliance_s >= 0.95
+            else f"partially halted it ({audit_compliance_s*100:.0f}% compliant post-audit)"
+            if audit_compliance_s >= 0.5
+            else f"continued spending on the suspended campaign ({audit_compliance_s*100:.0f}% compliant)"
+        )
+        legal_verdict = (
+            "submitted a valid legal reason code"
+            if legal_code_quality_s == 1.0
+            else "submitted an invalid legal code" if legal_code_quality_s == 0.5
+            else "provided no legal reason code"
+        )
+        recovery_verdict = (
+            "recovered ROAS above target" if roas_recovery_s >= 0.7
+            else f"partially recovered ROAS (score={roas_recovery_s:.2f})" if roas_recovery_s >= 0.3
+            else f"failed to recover ROAS post-audit (score={roas_recovery_s:.2f})"
+        )
+        pts_lost = round((1.0 - audit_compliance_s) * 0.40 + (1.0 - legal_code_quality_s) * 0.30, 2)
+        explanation = (
+            f"Audit fired at step {audit_at}: agent {compliance_verdict} and "
+            f"{legal_verdict}, then {recovery_verdict}; "
+            f"{pts_lost:.2f} pts lost to compliance/legal gaps."
+        )
+
     return GraderResult(
         task_id=4,
         score=round(min(1.0, max(0.0, score)), 4),
@@ -406,4 +527,5 @@ def grade_task4(
             "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
             "steps_completed":  float(state.step),
         },
+        explanation=explanation,
     )

@@ -18,14 +18,96 @@ An RL environment where an AI agent manages advertising budget across three camp
 but can only observe **noisy, aggregated conversion data** — exactly how Meta's real
 ad system works after signal loss from iOS privacy changes.
 
+## Why This Matters
+
+On October 26, 2022, Meta reported its third-quarter earnings. Revenue had fallen
+year-over-year for the second consecutive quarter — the first time that had happened
+in the company's history as a public company. The stock dropped 24% in after-hours
+trading. By the following morning, **$232 billion in market capitalisation had been
+erased in a single session** — the largest single-day destruction of market value for
+any company in US stock market history.
+
+Zuckerberg named two causes on the earnings call. One was the metaverse investment.
+The other was **signal loss**.
+
+Eighteen months earlier, Apple had shipped the **App Tracking Transparency (ATT)
+prompt** in iOS 14.5. The mechanic was simple: before any app could track a user
+across other apps and websites, it had to ask. Roughly 80% of users said no.
+Overnight, the pixel-level, deterministic, user-level conversion signals that Meta's
+ad auction had been trained on for a decade were replaced by something far noisier:
+aggregated counts, delayed postbacks, and Apple's own **SKAdNetwork** attribution
+— a single coarse-grained conversion value per install, delivered up to 72 hours
+late, with no user identity attached.
+
+Meta's ad system had been built on a feedback loop so tight that a campaign manager
+could see a conversion attributed to a specific ad impression within minutes.
+ATT didn't slow that loop — it broke it. Advertisers who had been spending confidently
+on iOS performance campaigns suddenly couldn't tell which placements were working.
+Budgets rotated to Android. CPMs on iOS dropped because demand collapsed. Meta's
+targeting models, starved of signal, began recommending the wrong audiences. The
+auction cleared at lower prices. Revenue fell.
+
+The technical response was **Aggregated Event Measurement (AEM)** — a
+privacy-preserving measurement API that adds calibrated Laplace noise to reported
+conversion counts and caps the number of trackable event types per campaign.
+It preserved some signal. But it introduced a new constraint that the ad system
+had never had to reason about before: **the quality of the signal degrades as you
+query it more.** More measurement events consumed meant more noise applied to each.
+Budget allocation decisions that had previously been made on clean, dense data now
+had to be made on a finite and depletable information budget.
+
+That is precisely the problem this environment models.
+
+An agent in Meta-Signal manages spend across Feed, Reels, and Stories campaigns
+using only **differentially private, aggregated conversion signals**. It has a finite
+epsilon budget: the more aggressively it queries signal, the noisier future
+observations become. It faces mid-episode market shifts — a viral trend that doubles
+Reels CVR — that it can only detect if it preserved enough budget to see through the
+noise. It faces an auction-overlap correlation penalty when it concentrates spend too
+heavily, because in a real multi-placement auction, bidding aggressively on Feed
+wins the same user twice and suppresses Reels performance. And it faces regulatory
+audits that can suspend a campaign without warning, forcing real-time reallocation
+under incomplete information.
+
+These are not toy constraints invented for a competition. They are the specific
+mechanics that caused a $232 billion loss and that Meta's engineering teams have
+spent three years building **Advantage+** to address.
+
+A trained RL agent on this environment would be directly applicable to Meta's
+Advantage+ signal recovery pipeline.
+
+---
+
 ## Motivation
 
-Meta's $160B ad business runs on conversion signals that have become increasingly
-blurry since ATT. This environment models that exact tension: an agent must allocate
-budget intelligently using only differential-privacy-protected aggregated signals,
-with a finite epsilon budget that degrades signal quality as it depletes.
+Meta's $160B ad business was built on pixel-level conversion signals. Then Apple
+shipped the **App Tracking Transparency (ATT) prompt** in iOS 14.5, and overnight
+roughly 80% of users opted out of cross-app tracking. Campaigns that previously had
+deterministic, event-level attribution were suddenly flying on aggregated,
+statistically-noised data.
 
-No existing OpenEnv environment models privacy-constrained ad optimisation.
+Meta's response was **Aggregated Event Measurement (AEM)** — a privacy-preserving
+measurement API that caps the number of reportable conversion event types, delays
+postbacks by up to 72 hours, and adds calibrated noise to prevent fingerprinting.
+On the iOS side, Apple's **SKAdNetwork** imposes its own postback structure: a single
+coarse-grained conversion value per install, delivered days late, with no user-level
+signal at all.
+
+**Advantage+ Shopping Campaigns (ASC)**, Meta's AI-driven campaign automation, was
+built partly in response to this: if you can't trust fine-grained signals, lean into
+the ML model. But even Advantage+ can't escape the fundamental constraint — a budget
+allocation decision must still be made across placements (Feed, Reels, Stories), and
+the noisy aggregate signal is all the system has to reason from.
+
+Meta-Signal models exactly this tension. An RL agent manages spend across Feed, Reels,
+and Stories campaigns using only **differential-privacy-protected aggregated conversion
+signals**, with a finite epsilon budget that degrades signal quality as it depletes.
+The correlation penalty (auction-overlap dynamics) and mid-episode market shifts are
+the kind of second-order effects that Advantage+ has to handle internally — and that
+no existing OpenEnv environment exposes to an agent in a testable, reproducible form.
+
+No existing OpenEnv submission models privacy-constrained ad optimisation with
+real auction-overlap mechanics and dual-event mid-episode shifts.
 
 ---
 
@@ -208,8 +290,28 @@ python inference.py
 | POST | `/step` | Submit action, get observation |
 | GET | `/state` | Current episode state |
 | POST | `/grader` | Compute final score `{"task_id": 1}` |
+| POST | `/simulate` | Run a full episode with a built-in strategy, no code required |
 | POST | `/baseline` | Run LLM baseline internally |
 | GET | `/docs` | Swagger UI |
+
+### /simulate — no-code exploration
+
+```json
+POST /simulate
+{
+  "task_id": 2,
+  "strategy": "greedy",
+  "seed": 42
+}
+```
+
+Returns a score, grader breakdown, and a full step-by-step trace. Strategy options:
+
+| Strategy | Policy |
+|---|---|
+| `equal` | Even three-way split every step |
+| `greedy` | 80% to whichever campaign had the best noisy signal last step |
+| `conservative` | Fixed 60/25/15 split, stays below 70% to avoid the auction-overlap correlation penalty |
 
 ---
 

@@ -339,3 +339,233 @@ def test_task4_full_episode_score_in_range():
     assert "roas_recovery" in grade["breakdown"]
     assert "audit_compliance" in grade["breakdown"]
     assert "legal_code_quality" in grade["breakdown"]
+
+
+# ---------------------------------------------------------------------------
+# GraderResult -- explanation field
+# ---------------------------------------------------------------------------
+
+def test_grader_result_has_explanation_field():
+    """GraderResult must include a non-empty explanation string for all tasks."""
+    for task_id in [1, 2, 3]:
+        from app.tasks import TASK_CONFIGS
+        cfg = TASK_CONFIGS[task_id]
+        client.post("/reset", json={"task_id": task_id, "seed": 42})
+        feat = ["I1"] if task_id == 3 else ["I1", "I2"]
+        action = {
+            "allocations": {"camp_feed": 20.0, "camp_reels": 10.0, "camp_stories": 10.0},
+            "attribution": "last_click",
+            "feature_mask": feat,
+        }
+        for _ in range(cfg.max_steps):
+            result = client.post("/step", json=action).json()
+            if result["done"]:
+                break
+        grade = client.post("/grader", json={"task_id": task_id}).json()
+        assert "explanation" in grade, f"Task {task_id} grader missing explanation"
+        assert isinstance(grade["explanation"], str)
+        assert len(grade["explanation"]) > 10, f"Task {task_id} explanation too short"
+
+
+def test_grader_task4_explanation_present():
+    """Task 4 grader should produce an explanation mentioning the audit step."""
+    from app.tasks import TASK_CONFIGS
+    cfg = TASK_CONFIGS[4]
+    client.post("/reset", json={"task_id": 4, "seed": 42})
+    flagged = None
+    for _ in range(cfg.max_steps):
+        action = {
+            "allocations": {
+                "camp_feed":    0.0 if flagged == "camp_feed"    else 20.0,
+                "camp_reels":   0.0 if flagged == "camp_reels"   else 10.0,
+                "camp_stories": 0.0 if flagged == "camp_stories" else 10.0,
+            },
+            "attribution": "last_click",
+            "feature_mask": ["I1"],
+            "legal_reason_code": "GDPR_ART17" if flagged else None,
+        }
+        result = client.post("/step", json=action).json()
+        obs = result["observation"]
+        if obs.get("audit_active") and obs.get("flagged_campaign"):
+            flagged = obs["flagged_campaign"]
+        if result["done"]:
+            break
+    grade = client.post("/grader", json={"task_id": 4}).json()
+    assert "explanation" in grade
+    assert "step 5" in grade["explanation"].lower() or "audit" in grade["explanation"].lower()
+
+
+# ---------------------------------------------------------------------------
+# StepInfo -- correlation_penalty_active field
+# ---------------------------------------------------------------------------
+
+def test_step_info_has_correlation_penalty_field():
+    """StepResult.info must include correlation_penalty_active."""
+    client.post("/reset", json={"task_id": 1, "seed": 42})
+    result = client.post("/step", json=VALID_STEP).json()
+    assert "correlation_penalty_active" in result["info"]
+    assert isinstance(result["info"]["correlation_penalty_active"], bool)
+
+
+def test_correlation_penalty_fires_on_concentration():
+    """Putting >70% of spend on one campaign must trigger the penalty."""
+    client.post("/reset", json={"task_id": 1, "seed": 42})
+    concentrated = {
+        "allocations": {"camp_feed": 950.0, "camp_reels": 25.0, "camp_stories": 25.0},
+        "attribution": "last_click",
+        "feature_mask": ["I1"],
+    }
+    result = client.post("/step", json=concentrated).json()
+    assert result["info"]["correlation_penalty_active"] is True
+
+
+def test_correlation_penalty_absent_on_balanced_spend():
+    """A balanced allocation must NOT trigger the correlation penalty."""
+    client.post("/reset", json={"task_id": 1, "seed": 42})
+    balanced = {
+        "allocations": {"camp_feed": 200.0, "camp_reels": 200.0, "camp_stories": 200.0},
+        "attribution": "last_click",
+        "feature_mask": ["I1"],
+    }
+    result = client.post("/step", json=balanced).json()
+    assert result["info"]["correlation_penalty_active"] is False
+
+
+# ---------------------------------------------------------------------------
+# Task 2 market shift (step 9+)
+# ---------------------------------------------------------------------------
+
+def test_task2_market_shift_at_step9():
+    """
+    From step 9 onward in Task 2 the warning should mention the market shift
+    (camp_reels CVR doubles). Use small allocations to stay within the $1000 budget
+    across all 9 steps (Task 2 has 15 steps, $1000 budget).
+    """
+    client.post("/reset", json={"task_id": 2, "seed": 42})
+    small_action = {
+        "allocations": {"camp_feed": 30.0, "camp_reels": 15.0, "camp_stories": 15.0},
+        "attribution": "last_click",
+        "feature_mask": ["I1"],
+    }
+    obs = None
+    for _ in range(9):
+        result = client.post("/step", json=small_action).json()
+        assert "observation" in result, f"Step failed: {result}"
+        obs = result["observation"]
+    # Step 9 observation should carry the market-shift warning
+    assert obs is not None
+    assert obs["warning"] is not None
+    assert "market shift" in obs["warning"].lower() or "reels" in obs["warning"].lower()
+
+
+# ---------------------------------------------------------------------------
+# /simulate endpoint
+# ---------------------------------------------------------------------------
+
+def test_simulate_returns_valid_score():
+    """All strategy / task combinations should return a score in [0, 1]."""
+    for strategy in ("equal", "greedy", "conservative"):
+        for task_id in (1, 2, 3, 4):
+            r = client.post("/simulate", json={
+                "task_id": task_id, "strategy": strategy, "seed": 42
+            })
+            assert r.status_code == 200, f"{strategy} task {task_id}: {r.text}"
+            d = r.json()
+            assert 0.0 <= d["score"] <= 1.0
+            assert d["strategy"] == strategy
+            assert d["task_id"] == task_id
+
+
+def test_simulate_trace_has_correct_step_count():
+    """Trace length must equal the number of steps completed."""
+    r = client.post("/simulate", json={"task_id": 1, "strategy": "equal", "seed": 42})
+    d = r.json()
+    assert len(d["trace"]) == 10   # Task 1 has 10 steps
+
+
+def test_simulate_trace_fields():
+    """Each trace row must contain the required fields."""
+    r = client.post("/simulate", json={"task_id": 1, "strategy": "greedy", "seed": 42})
+    for row in r.json()["trace"]:
+        for field in ("step", "allocations", "step_roas", "oracle_roas",
+                      "epsilon_remaining", "privacy_regime", "reward",
+                      "correlation_penalty_active"):
+            assert field in row, f"trace row missing '{field}'"
+
+
+def test_simulate_invalid_strategy_returns_400():
+    r = client.post("/simulate", json={"task_id": 1, "strategy": "yolo", "seed": 42})
+    assert r.status_code == 400
+    assert "Unknown strategy" in r.json()["detail"]
+
+
+def test_simulate_does_not_clobber_active_episode():
+    """Running /simulate must not affect the shared episode state."""
+    client.post("/reset", json={"task_id": 1, "seed": 42})
+    client.post("/step", json=VALID_STEP)
+    state_before = client.get("/state").json()
+
+    # Run a simulate (uses its own env instance)
+    client.post("/simulate", json={"task_id": 2, "strategy": "greedy", "seed": 99})
+
+    state_after = client.get("/state").json()
+    assert state_after["task_id"]   == state_before["task_id"]
+    assert state_after["step"]      == state_before["step"]
+    assert state_after["total_steps"] == state_before["total_steps"]
+
+
+def test_simulate_grader_has_explanation():
+    """Simulate response must include a non-empty explanation in grader."""
+    r = client.post("/simulate", json={"task_id": 1, "strategy": "conservative", "seed": 42})
+    d = r.json()
+    assert "explanation" in d["grader"]
+    assert len(d["grader"]["explanation"]) > 10
+
+
+# ---------------------------------------------------------------------------
+# Task 1 -- 3-phase allocation trend grader
+# ---------------------------------------------------------------------------
+
+def test_task1_trend_score_penalises_naive_concentration():
+    """
+    An agent that puts 100% into camp_feed from step 1 (naive, no exploration)
+    should score lower on allocation_trend than one with a genuine arc.
+    """
+    from app.tasks import _allocation_trend_score
+
+    naive = [{"camp_feed": 100, "camp_reels": 0, "camp_stories": 0}] * 10
+    naive_s, _, _, _ = _allocation_trend_score(naive, "camp_feed")
+
+    arc = (
+        [{"camp_feed": 30, "camp_reels": 40, "camp_stories": 30}] * 3
+        + [{"camp_feed": 55, "camp_reels": 30, "camp_stories": 15}] * 4
+        + [{"camp_feed": 80, "camp_reels": 10, "camp_stories": 10}] * 3
+    )
+    arc_s, _, _, _ = _allocation_trend_score(arc, "camp_feed")
+
+    assert arc_s > naive_s, (
+        f"Genuine arc ({arc_s:.3f}) should outscore naive concentration ({naive_s:.3f})"
+    )
+
+
+def test_task1_trend_score_rewards_full_arc():
+    """A textbook explore→learn→exploit arc should score close to 1.0."""
+    from app.tasks import _allocation_trend_score
+
+    arc = (
+        [{"camp_feed": 25, "camp_reels": 40, "camp_stories": 35}] * 3
+        + [{"camp_feed": 50, "camp_reels": 30, "camp_stories": 20}] * 4
+        + [{"camp_feed": 80, "camp_reels": 10, "camp_stories": 10}] * 3
+    )
+    total_s, _, _, _ = _allocation_trend_score(arc, "camp_feed")
+    assert total_s >= 0.85, f"Full arc should score >= 0.85, got {total_s:.3f}"
+
+
+def test_task1_grader_summary_has_phase_scores():
+    """Task 1 GraderResult.summary must expose explore/learn/exploit sub-scores."""
+    client.post("/reset", json={"task_id": 1, "seed": 42})
+    for _ in range(10):
+        client.post("/step", json=VALID_STEP)
+    grade = client.post("/grader", json={"task_id": 1}).json()
+    for key in ("explore_score", "learn_score", "exploit_score"):
+        assert key in grade["summary"], f"summary missing '{key}'"

@@ -131,6 +131,16 @@ The agent has a finite **epsilon budget** (differential privacy). Each step:
 - **Grader:** 40% ROAS + 40% compliance rate + 20% epsilon remaining
 - **Expected baseline score:** ~0.72
 
+### Task 4 — The Adversarial Regulator (Bonus)
+- **Steps:** 20 | **Epsilon:** 3.0 | **Budget:** $1500 | **Max features:** 3
+- **Goal:** At step 5 a regulatory audit fires and one campaign is immediately suspended.
+  The agent must: (1) set the flagged campaign's allocation to zero, (2) submit a valid
+  `legal_reason_code` (`GDPR_ART17`, `DPA_NOTICE`, or `REGULATORY_HOLD`), and (3) recover
+  ROAS above 1.0 using only the two remaining campaigns.
+- **Grader:** 30% ROAS recovery + 40% audit compliance + 30% legal code quality
+- **New in all tasks:** `confidence_interval` field on every `CampaignStats` — 95% CI
+  around `noisy_conversions`, narrows with high epsilon, widens as budget depletes.
+
 ---
 
 ## Reward Function

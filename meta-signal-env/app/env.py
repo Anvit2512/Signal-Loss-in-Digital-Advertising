@@ -36,7 +36,14 @@ from app.models import (
     StepResult,
 )
 from app.privacy import PrivacyEngine, regulatory_penalty
-from app.tasks import get_task_config, grade_task1, grade_task2, grade_task3
+from app.tasks import (
+    AUDIT_STEP,
+    get_task_config,
+    grade_task1,
+    grade_task2,
+    grade_task3,
+    grade_task4,
+)
 
 # ---------------------------------------------------------------------------
 # Episode constants
@@ -65,10 +72,11 @@ class MetaSignalEnv:
     """
 
     def __init__(self) -> None:
-        self._snapshot      = get_snapshot()
-        self._state:        Optional[EpisodeState]     = None
-        self._privacy:      Optional[PrivacyEngine]    = None
-        self._alloc_history: List[Dict[str, float]]    = []   # per-step allocations
+        self._snapshot       = get_snapshot()
+        self._state:         Optional[EpisodeState]     = None
+        self._privacy:       Optional[PrivacyEngine]    = None
+        self._alloc_history: List[Dict[str, float]]     = []   # per-step allocations
+        self._legal_codes:   List[Optional[str]]        = []   # Task 4: legal reason codes per step
 
     # ------------------------------------------------------------------
     # reset
@@ -119,6 +127,12 @@ class MetaSignalEnv:
             is_done=False,
         )
         self._alloc_history = []
+        self._legal_codes   = []
+
+        # Task 4: pre-determine which campaign the regulator will flag
+        if task_id == 4:
+            camp_list = list(CAMPAIGN_NAMES)
+            self._state.flagged_campaign = camp_list[start_row % len(camp_list)]
 
         return self._build_initial_observation()
 
@@ -150,8 +164,18 @@ class MetaSignalEnv:
         allocations = self._clip_allocations(
             action.allocations, self._state.budget_remaining
         )
+
+        # Task 4: enforce zero spend on flagged campaign once audit has fired
+        audit_already_fired = (
+            self._state.task_id == 4
+            and self._state.audit_fired_at is not None
+        )
+        if audit_already_fired and self._state.flagged_campaign:
+            allocations[self._state.flagged_campaign] = 0.0
+
         actual_spend = sum(allocations.values())
         self._alloc_history.append(dict(allocations))
+        self._legal_codes.append(action.legal_reason_code)
 
         # --- 2. Consume epsilon ---
         epsilon_cost = self._privacy.consume(action.feature_mask, action.attribution)
@@ -190,8 +214,16 @@ class MetaSignalEnv:
         }
 
         # --- 8. Regulatory penalty + reward ---
-        penalty      = regulatory_penalty(action.feature_mask, cfg.max_features)
+        penalty       = regulatory_penalty(action.feature_mask, cfg.max_features)
         reg_violation = len(action.feature_mask) > cfg.max_features
+
+        # Task 4: extra penalty if agent spent on flagged campaign after audit fired
+        if audit_already_fired and self._state.flagged_campaign:
+            original_flagged_spend = action.allocations.get(self._state.flagged_campaign, 0.0)
+            if original_flagged_spend > 0.0:
+                penalty       += 4.0   # quadratic-style fixed penalty per violation
+                reg_violation  = True
+
         if reg_violation:
             self._state.regulatory_violations += 1
 
@@ -214,6 +246,14 @@ class MetaSignalEnv:
             self._state.privacy_regime    = self._privacy.regime
             self._state.epsilon_remaining = self._privacy.epsilon_remaining
 
+        # Task 4: fire regulatory audit after processing step AUDIT_STEP
+        if (
+            self._state.task_id == 4
+            and self._state.step == AUDIT_STEP
+            and self._state.audit_fired_at is None
+        ):
+            self._state.audit_fired_at = self._state.step
+
         done = (
             self._state.step >= self._state.total_steps
             or self._state.budget_remaining <= 0.0
@@ -230,6 +270,10 @@ class MetaSignalEnv:
         elif self._privacy.regime == PrivacyRegime.HIGH_NOISE:
             warning = "Privacy update active -- noise level elevated"
 
+        audit_now_active = (
+            self._state.task_id == 4
+            and self._state.audit_fired_at is not None
+        )
         obs = Observation(
             step=self._state.step,
             campaigns=self._build_campaign_stats(
@@ -240,6 +284,8 @@ class MetaSignalEnv:
             privacy_regime=self._privacy.regime,
             available_features=self._privacy.available_features(),
             regulatory_violation=reg_violation,
+            audit_active=audit_now_active,
+            flagged_campaign=self._state.flagged_campaign if audit_now_active else None,
             warning=warning,
         )
 
@@ -279,6 +325,8 @@ class MetaSignalEnv:
             result = grade_task2(self._state, self._alloc_history, self._privacy)
         elif task_id == 3:
             result = grade_task3(self._state, self._alloc_history, self._privacy)
+        elif task_id == 4:
+            result = grade_task4(self._state, self._alloc_history, self._legal_codes)
         else:
             raise ValueError(f"Unknown task_id {task_id}")
 
@@ -313,13 +361,16 @@ class MetaSignalEnv:
         true_cvr:          Dict[str, float],
     ) -> List[CampaignStats]:
         """Build the CampaignStats list for the Observation."""
+        noise_scale = self._privacy.noise_scale
         stats = []
         for camp in CAMPAIGN_NAMES:
-            spend    = allocations.get(camp, 0.0)
-            noisy_c  = noisy_conversions[camp]
-            n_imps   = max(impressions[camp], 1)
+            spend     = allocations.get(camp, 0.0)
+            noisy_c   = noisy_conversions[camp]
+            n_imps    = max(impressions[camp], 1)
             noisy_cvr = noisy_c / n_imps
             est_roas  = noisy_cvr * ROAS_MULTIPLIER
+            ci_half   = 1.96 * noise_scale
+            ci        = (round(noisy_c - ci_half, 4), round(noisy_c + ci_half, 4))
 
             stats.append(CampaignStats(
                 campaign_id=camp,
@@ -329,6 +380,7 @@ class MetaSignalEnv:
                 noisy_conversions=round(noisy_c, 4),
                 estimated_roas=round(est_roas, 4),
                 ctr=round(true_cvr[camp], 6),   # CTR: no noise, observable
+                confidence_interval=ci,
             ))
         return stats
 
@@ -348,6 +400,7 @@ class MetaSignalEnv:
                     noisy_conversions=0.0,
                     estimated_roas=0.0,
                     ctr=0.0,
+                    confidence_interval=(0.0, 0.0),
                 )
                 for camp in CAMPAIGN_NAMES
             ],
@@ -356,6 +409,8 @@ class MetaSignalEnv:
             privacy_regime=self._privacy.regime,
             available_features=self._privacy.available_features(),
             regulatory_violation=False,
+            audit_active=False,
+            flagged_campaign=None,
             warning=None,
         )
 
@@ -367,7 +422,7 @@ class MetaSignalEnv:
 if __name__ == "__main__":
     env = MetaSignalEnv()
 
-    for task_id in [1, 2, 3]:
+    for task_id in [1, 2, 3, 4]:
         cfg  = get_task_config(task_id)
         obs  = env.reset(task_id=task_id, seed=42)
         print(f"\n{'='*55}")

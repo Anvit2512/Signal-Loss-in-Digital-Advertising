@@ -31,12 +31,12 @@ def test_tasks_returns_three():
     r = client.get("/tasks")
     assert r.status_code == 200
     tasks = r.json()
-    assert len(tasks) == 3
+    assert len(tasks) == 4
 
 def test_tasks_ids_are_1_2_3():
     tasks = client.get("/tasks").json()
     ids = {t["task_id"] for t in tasks}
-    assert ids == {1, 2, 3}
+    assert ids == {1, 2, 3, 4}
 
 def test_tasks_have_required_fields():
     for task in client.get("/tasks").json():
@@ -68,7 +68,7 @@ def test_reset_task3_regime_is_minimal_data():
 
 def test_reset_invalid_task_id():
     r = client.post("/reset", json={"task_id": 99})
-    assert r.status_code == 422   # Pydantic validation: ge=1 le=3
+    assert r.status_code == 422   # Pydantic validation: ge=1 le=4
 
 def test_reset_reproducible_with_seed():
     obs_a = client.post("/reset", json={"task_id": 1, "seed": 7}).json()
@@ -271,3 +271,71 @@ def test_task3_compliance_penalised_with_excess_features():
     """Using 3 features on Task 3 (max=1) should lower compliance score."""
     grade = _run_full_episode(3, ["I1", "I2", "I3"])
     assert grade["breakdown"]["compliance_score"] < 1.0
+
+
+# ---------------------------------------------------------------------------
+# Task 4 -- The Adversarial Regulator
+# ---------------------------------------------------------------------------
+
+def test_reset_task4_succeeds():
+    r = client.post("/reset", json={"task_id": 4, "seed": 42})
+    assert r.status_code == 200
+    obs = r.json()
+    assert obs["step"] == 0
+    assert obs["audit_active"] is False
+    assert obs["flagged_campaign"] is None
+
+
+def test_task4_confidence_interval_present():
+    """CampaignStats must include confidence_interval after a step."""
+    client.post("/reset", json={"task_id": 4, "seed": 42})
+    r = client.post("/step", json=VALID_STEP)
+    assert r.status_code == 200
+    camps = r.json()["observation"]["campaigns"]
+    for cs in camps:
+        assert "confidence_interval" in cs
+        ci = cs["confidence_interval"]
+        assert len(ci) == 2
+        assert ci[1] >= ci[0]   # upper >= lower
+
+
+def test_task4_audit_fires_at_step5():
+    """After 5 steps, audit_active should be True and flagged_campaign set."""
+    client.post("/reset", json={"task_id": 4, "seed": 42})
+    obs = None
+    for _ in range(5):
+        r = client.post("/step", json=VALID_STEP)
+        obs = r.json()["observation"]
+    assert obs["audit_active"] is True
+    assert obs["flagged_campaign"] in ("camp_feed", "camp_reels", "camp_stories")
+
+
+def test_task4_full_episode_score_in_range():
+    """Full Task 4 episode with compliant agent returns valid score."""
+    from app.tasks import TASK_CONFIGS
+    cfg = TASK_CONFIGS[4]
+    client.post("/reset", json={"task_id": 4, "seed": 42})
+    flagged = None
+    for step_n in range(cfg.max_steps):
+        action = {
+            "allocations": {
+                "camp_feed":    0.0 if flagged == "camp_feed"    else 20.0,
+                "camp_reels":   0.0 if flagged == "camp_reels"   else 10.0,
+                "camp_stories": 0.0 if flagged == "camp_stories" else 10.0,
+            },
+            "attribution": "last_click",
+            "feature_mask": ["I1"],
+            "halted_campaigns": [flagged] if flagged else [],
+            "legal_reason_code": "GDPR_ART17" if flagged else None,
+        }
+        result = client.post("/step", json=action).json()
+        obs = result["observation"]
+        if obs.get("audit_active") and obs.get("flagged_campaign"):
+            flagged = obs["flagged_campaign"]
+        if result["done"]:
+            break
+    grade = client.post("/grader", json={"task_id": 4}).json()
+    assert 0.0 <= grade["score"] <= 1.0
+    assert "roas_recovery" in grade["breakdown"]
+    assert "audit_compliance" in grade["breakdown"]
+    assert "legal_code_quality" in grade["breakdown"]

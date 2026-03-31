@@ -1,17 +1,18 @@
 """
 Layer 4 -- Task Definitions and Graders
 
-Three tasks with distinct difficulty levels and grading criteria.
+Four tasks with distinct difficulty levels and grading criteria.
 All graders return continuous scores in [0.0, 1.0] with partial credit.
 
 Task 1 -- Budget Optimisation    (Easy)    10 steps, clean signal
 Task 2 -- Noisy Signal Recovery  (Medium)  15 steps, signal degrades at step 3
 Task 3 -- Privacy Frontier       (Hard)    15 steps, one feature max from start
+Task 4 -- The Adversarial Regulator (Bonus) 20 steps, mid-episode audit + suspension
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
 
@@ -24,6 +25,14 @@ from app.models import (
 
 if TYPE_CHECKING:
     from app.privacy import PrivacyEngine
+
+
+# ---------------------------------------------------------------------------
+# Task 4 constants
+# ---------------------------------------------------------------------------
+
+AUDIT_STEP        = 5   # Task 4: regulatory audit fires after this many steps complete
+VALID_LEGAL_CODES = frozenset({"GDPR_ART17", "DPA_NOTICE", "REGULATORY_HOLD"})
 
 
 # ---------------------------------------------------------------------------
@@ -89,12 +98,34 @@ TASK_CONFIGS: Dict[int, TaskDefinition] = {
             "epsilon_remaining": 0.2,
         },
     ),
+    4: TaskDefinition(
+        task_id=4,
+        name="The Adversarial Regulator",
+        description=(
+            "A regulatory audit fires mid-episode at step 5. One campaign is "
+            "immediately suspended and must receive zero spend for the rest of "
+            "the episode. Halt the flagged campaign with a valid legal reason "
+            "code (GDPR_ART17, DPA_NOTICE, or REGULATORY_HOLD), then recover "
+            "ROAS using only the two remaining campaigns."
+        ),
+        max_steps=20,
+        initial_budget=1500.0,
+        initial_epsilon=3.0,
+        privacy_regime=PrivacyRegime.STANDARD,
+        target_roas=1.0,
+        max_features=3,
+        grader_weights={
+            "roas_recovery":      0.30,
+            "audit_compliance":   0.40,
+            "legal_code_quality": 0.30,
+        },
+    ),
 }
 
 
 def get_task_config(task_id: int) -> TaskDefinition:
     if task_id not in TASK_CONFIGS:
-        raise ValueError(f"Unknown task_id {task_id}. Choose 1, 2, or 3.")
+        raise ValueError(f"Unknown task_id {task_id}. Choose 1, 2, 3, or 4.")
     return TASK_CONFIGS[task_id]
 
 
@@ -291,6 +322,88 @@ def grade_task3(
             "violations":       float(state.regulatory_violations),
             "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
             "compliance_rate":  round(compliance_s, 4),
+            "steps_completed":  float(state.step),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Task 4 grader
+# ---------------------------------------------------------------------------
+
+def grade_task4(
+    state: EpisodeState,
+    alloc_history: List[Dict[str, float]],
+    legal_codes: List[Optional[str]],
+) -> GraderResult:
+    """
+    Task 4 -- The Adversarial Regulator
+
+    30% -- roas_recovery: ROAS maintained in post-audit steps vs target
+    40% -- audit_compliance: fraction of post-audit steps with zero spend on flagged campaign
+    30% -- legal_code_quality: valid legal reason code submitted after audit fires
+    """
+    cfg      = TASK_CONFIGS[4]
+    flagged  = state.flagged_campaign
+    audit_at = state.audit_fired_at   # step counter value when audit fired (e.g. 5)
+
+    # --- ROAS recovery: score based on post-audit step ROAS vs target ---
+    if not state.history or audit_at is None:
+        roas_recovery_s = 0.0
+    else:
+        post_steps = [
+            r.info.step_roas for r in state.history
+            if r.observation.step > audit_at
+        ]
+        post_roas       = float(np.mean(post_steps)) if post_steps else 0.0
+        roas_recovery_s = _roas_score(post_roas, cfg.target_roas)
+
+    # --- Audit compliance: zero spend on flagged campaign post-audit ---
+    if flagged is None or audit_at is None:
+        # Audit never fired (episode ended before step AUDIT_STEP)
+        audit_compliance_s = 0.5
+    else:
+        # alloc_history is 0-indexed; index audit_at = step audit_at+1 onwards
+        post_allocs = alloc_history[audit_at:]
+        if not post_allocs:
+            audit_compliance_s = 0.0
+        else:
+            compliant          = sum(1 for a in post_allocs if a.get(flagged, 0.0) <= 0.0)
+            audit_compliance_s = compliant / len(post_allocs)
+
+    # --- Legal code quality: valid code submitted after audit fires ---
+    if audit_at is None or not legal_codes:
+        legal_code_quality_s = 0.0
+    else:
+        post_codes = legal_codes[audit_at:]   # codes from first post-audit step onwards
+        valid_used = any(c in VALID_LEGAL_CODES for c in post_codes if c is not None)
+        any_used   = any(c is not None for c in post_codes)
+        if valid_used:
+            legal_code_quality_s = 1.0
+        elif any_used:
+            legal_code_quality_s = 0.5
+        else:
+            legal_code_quality_s = 0.0
+
+    score = (
+        roas_recovery_s      * 0.30
+        + audit_compliance_s * 0.40
+        + legal_code_quality_s * 0.30
+    )
+
+    return GraderResult(
+        task_id=4,
+        score=round(min(1.0, max(0.0, score)), 4),
+        breakdown={
+            "roas_recovery":      round(roas_recovery_s, 4),
+            "audit_compliance":   round(audit_compliance_s, 4),
+            "legal_code_quality": round(legal_code_quality_s, 4),
+        },
+        summary={
+            "avg_roas":         round(_avg_step_roas(state), 4),
+            "audit_fired_at":   float(audit_at) if audit_at is not None else -1.0,
+            "violations":       float(state.regulatory_violations),
+            "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
             "steps_completed":  float(state.step),
         },
     )

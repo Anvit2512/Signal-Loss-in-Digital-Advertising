@@ -10,7 +10,8 @@
 <style>
 /* ── RESET & TOKENS ─────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; }
+html { height: 100%; }
+body { min-height: 100%; overflow-x: hidden; }
 
 :root {
   --bg:        #0f172a;
@@ -19,7 +20,6 @@ html, body { height: 100%; overflow: hidden; }
   --surface3:  #2d3f56;
   --border:    #334155;
   --border2:   #3d5068;
-
   --cyan:      #38bdf8;
   --cyan-glow: rgba(56,189,248,.15);
   --green:     #4ade80;
@@ -29,15 +29,12 @@ html, body { height: 100%; overflow: hidden; }
   --orange:    #fb923c;
   --purple:    #a78bfa;
   --yellow:    #fbbf24;
-
   --text:      #e2e8f0;
   --dim:       #94a3b8;
   --muted:     #64748b;
-
   --feed:      #38bdf8;
   --reels:     #a78bfa;
   --stories:   #fb923c;
-
   --r:   8px;
   --r-sm:4px;
   --r-lg:12px;
@@ -51,809 +48,1329 @@ body {
   line-height: 1.5;
 }
 
-/* ── APP SHELL ───────────────────────────────────────── */
-.app { display: flex; flex-direction: column; height: 100vh; }
-
-/* ── HEADER ─────────────────────────────────────────── */
-header {
-  flex-shrink: 0;
+/* ── NAV ─────────────────────────────────────────────── */
+.topnav {
+  position: sticky; top: 0; z-index: 100;
   height: 56px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px;
-  background: rgba(15,23,42,.96);
+  padding: 0 24px;
+  background: rgba(15,23,42,.97);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(12px);
-  z-index: 10;
 }
-
-.logo {
-  display: flex; align-items: center; gap: 10px;
-}
+.nav-logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
 .logo-mark {
-  width: 32px; height: 32px; border-radius: 8px;
+  width:32px; height:32px; border-radius:8px;
   background: linear-gradient(135deg, var(--cyan), var(--purple));
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 900; color: #fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:900; color:#fff;
   box-shadow: 0 0 16px rgba(56,189,248,.3);
 }
-.logo-text {
-  font-size: 15px; font-weight: 700; letter-spacing: -.3px;
-  color: var(--text);
-}
-.logo-text span { color: var(--cyan); }
+.logo-text { font-size:15px; font-weight:700; letter-spacing:-.3px; color:var(--text); }
+.logo-text span { color:var(--cyan); }
 
-.task-tabs { display: flex; gap: 4px; }
+.nav-links { display:flex; gap:4px; }
+.navbtn {
+  padding:6px 18px; border-radius:var(--r-sm);
+  border:1px solid transparent; background:transparent;
+  color:var(--muted); cursor:pointer;
+  font-family:inherit; font-size:13px; font-weight:500;
+  transition:all .15s;
+}
+.navbtn:hover { color:var(--dim); background:var(--surface2); border-color:var(--border); }
+.navbtn.active { color:var(--cyan); background:var(--cyan-glow); border-color:var(--cyan); font-weight:600; }
+
+.nav-right { display:flex; align-items:center; gap:10px; }
+.nav-badge {
+  padding:4px 10px; border-radius:20px;
+  font-size:11px; font-weight:600;
+  background:var(--green-glow); color:var(--green);
+  border:1px solid rgba(74,222,128,.3);
+}
+
+/* ── PAGE SYSTEM ─────────────────────────────────────── */
+.page { display:none; }
+.page.active { display:block; }
+
+/* ══════════════════════════════════════════════════════
+   HOME PAGE
+══════════════════════════════════════════════════════ */
+.home-wrap { max-width:1100px; margin:0 auto; padding:0 24px 80px; }
+
+/* Hero */
+.hero {
+  text-align:center;
+  padding:72px 20px 56px;
+}
+.hero-eyebrow {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:5px 14px; border-radius:20px;
+  border:1px solid rgba(56,189,248,.3);
+  background:rgba(56,189,248,.07);
+  color:var(--cyan); font-size:12px; font-weight:600;
+  letter-spacing:.05em; text-transform:uppercase;
+  margin-bottom:24px;
+}
+.hero h1 {
+  font-size:clamp(28px,5vw,52px);
+  font-weight:900; letter-spacing:-.03em;
+  line-height:1.1;
+  background: linear-gradient(135deg, var(--text) 40%, var(--cyan));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:20px;
+}
+.hero p {
+  font-size:16px; color:var(--dim); max-width:640px;
+  margin:0 auto 36px; line-height:1.7;
+}
+.hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.btn-hero {
+  padding:12px 28px; border-radius:var(--r);
+  font-family:inherit; font-size:14px; font-weight:600;
+  cursor:pointer; transition:all .15s;
+}
+.btn-hero.primary {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color:#fff; border:none;
+  box-shadow: 0 4px 20px rgba(56,189,248,.25);
+}
+.btn-hero.primary:hover { transform:translateY(-1px); box-shadow:0 6px 28px rgba(56,189,248,.35); }
+.btn-hero.secondary {
+  background:transparent; color:var(--dim);
+  border:1px solid var(--border2);
+}
+.btn-hero.secondary:hover { border-color:var(--cyan); color:var(--cyan); background:var(--cyan-glow); }
+
+/* Section headers */
+.section-hdr {
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:24px;
+}
+.section-hdr h2 { font-size:20px; font-weight:700; letter-spacing:-.02em; }
+.section-hdr .sh-line { flex:1; height:1px; background:var(--border); }
+
+/* Concept cards */
+.concepts { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:56px; }
+.concept-card {
+  padding:24px; border-radius:var(--r-lg);
+  background:var(--surface);
+  border:1px solid var(--border);
+  transition: border-color .2s;
+}
+.concept-card:hover { border-color:var(--border2); }
+.cc-icon {
+  width:40px; height:40px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; margin-bottom:14px;
+}
+.cc-icon.green { background:var(--green-glow); }
+.cc-icon.cyan  { background:var(--cyan-glow); }
+.cc-icon.red   { background:var(--red-glow); }
+.cc-icon.purple{ background:rgba(167,139,250,.12); }
+.concept-card h3 { font-size:14px; font-weight:700; margin-bottom:8px; }
+.concept-card p  { font-size:12px; color:var(--dim); line-height:1.65; }
+
+/* Task cards */
+.task-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin-bottom:56px; }
+.task-card {
+  padding:20px; border-radius:var(--r-lg);
+  background:var(--surface); border:1px solid var(--border);
+  cursor:pointer; transition:all .2s;
+  position:relative; overflow:hidden;
+}
+.task-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+}
+.task-card.t1::before { background:var(--cyan); }
+.task-card.t2::before { background:var(--purple); }
+.task-card.t3::before { background:var(--green); }
+.task-card.t4::before { background:var(--red); }
+.task-card:hover { transform:translateY(-2px); border-color:var(--border2); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+.tc-num { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+.task-card.t1 .tc-num { color:var(--cyan); }
+.task-card.t2 .tc-num { color:var(--purple); }
+.task-card.t3 .tc-num { color:var(--green); }
+.task-card.t4 .tc-num { color:var(--red); }
+.tc-name { font-size:14px; font-weight:700; margin-bottom:8px; }
+.tc-desc { font-size:12px; color:var(--dim); line-height:1.6; margin-bottom:14px; }
+.tc-tag {
+  display:inline-block; padding:3px 10px; border-radius:12px;
+  font-size:11px; font-weight:600;
+}
+.task-card.t1 .tc-tag { background:var(--cyan-glow); color:var(--cyan); }
+.task-card.t2 .tc-tag { background:rgba(167,139,250,.12); color:var(--purple); }
+.task-card.t3 .tc-tag { background:var(--green-glow); color:var(--green); }
+.task-card.t4 .tc-tag { background:var(--red-glow); color:var(--red); }
+.tc-arrow { position:absolute; bottom:18px; right:18px; color:var(--muted); font-size:18px; }
+
+/* Quick Start */
+.quickstart { margin-bottom:56px; }
+.qs-steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; }
+.qs-step {
+  padding:20px; border-radius:var(--r-lg);
+  background:var(--surface); border:1px solid var(--border);
+  display:flex; flex-direction:column; gap:10px;
+}
+.qs-num {
+  width:28px; height:28px; border-radius:8px;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color:#fff; font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.qs-step h4 { font-size:13px; font-weight:700; }
+.qs-step p  { font-size:12px; color:var(--dim); line-height:1.6; }
+
+/* Privacy explainer */
+.privacy-box {
+  padding:24px; border-radius:var(--r-lg);
+  border:1px solid rgba(167,139,250,.3);
+  background:rgba(167,139,250,.06);
+  margin-bottom:56px;
+}
+.pb-title { font-size:14px; font-weight:700; color:var(--purple); margin-bottom:8px; }
+.pb-text  { font-size:13px; color:var(--dim); line-height:1.7; }
+.pb-grid  { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-top:16px; }
+.pb-item  { padding:14px; border-radius:var(--r); background:var(--surface); border:1px solid var(--border); }
+.pb-item strong { display:block; font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.pb-item span   { font-size:11px; color:var(--dim); }
+
+/* ══════════════════════════════════════════════════════
+   PLAYGROUND PAGE
+══════════════════════════════════════════════════════ */
+.pg-wrap { display:flex; flex-direction:column; height:calc(100vh - 56px); overflow:hidden; }
+
+/* task bar */
+.pg-taskbar {
+  flex-shrink:0; display:flex; align-items:center;
+  gap:8px; padding:10px 16px;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.pg-taskbar-label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
 .ttab {
-  padding: 6px 16px; border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: transparent; color: var(--muted);
-  cursor: pointer; font-family: inherit; font-size: 12px;
-  font-weight: 500; letter-spacing: .02em;
-  transition: all .15s;
+  padding:5px 14px; border-radius:var(--r-sm);
+  border:1px solid var(--border);
+  background:transparent; color:var(--muted);
+  cursor:pointer; font-family:inherit; font-size:12px; font-weight:500;
+  transition:all .15s;
 }
-.ttab:hover { border-color: var(--border2); color: var(--dim); background: var(--surface2); }
-.ttab.on  { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); font-weight: 600; }
-.ttab.t4  { border-color: rgba(248,113,113,.4); color: var(--red); }
-.ttab.t4:hover { background: var(--red-glow); }
-.ttab.t4.on { background: var(--red-glow); border-color: var(--red); }
-
-.hdr-right { display: flex; align-items: center; gap: 8px; }
-
+.ttab:hover { border-color:var(--border2); color:var(--dim); background:var(--surface2); }
+.ttab.on  { background:var(--cyan-glow); border-color:var(--cyan); color:var(--cyan); font-weight:600; }
+.ttab.t4  { border-color:rgba(248,113,113,.4); color:var(--red); }
+.ttab.t4:hover { background:var(--red-glow); }
+.ttab.t4.on { background:var(--red-glow); border-color:var(--red); }
+.pg-taskbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .hdr-chip {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 12px; border-radius: 20px;
-  border: 1px solid var(--border); background: var(--surface);
-  font-size: 12px; color: var(--dim);
+  padding:4px 10px; border-radius:20px;
+  border:1px solid var(--border); font-size:11px; color:var(--dim);
 }
-.hdr-chip strong { color: var(--text); font-weight: 600; }
+.regime-pill { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.rp-standard     { background:var(--green-glow);         color:var(--green);  border:1px solid rgba(74,222,128,.3); }
+.rp-high_noise   { background:var(--cyan-glow);           color:var(--cyan);   border:1px solid rgba(56,189,248,.3); }
+.rp-minimal_data { background:rgba(251,191,36,.1);       color:var(--yellow); border:1px solid rgba(251,191,36,.3); }
+.rp-exhausted    { background:var(--red-glow);            color:var(--red);    border:1px solid rgba(248,113,113,.3); }
 
-.regime-pill {
-  padding: 4px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
-  border: 1px solid; transition: all .3s;
-}
-.rp-standard     { border-color: rgba(74,222,128,.4);  color: var(--green);  background: var(--green-glow); }
-.rp-high_noise   { border-color: rgba(251,191,36,.4);  color: var(--yellow); background: rgba(251,191,36,.08); }
-.rp-minimal_data { border-color: rgba(251,146,60,.4);  color: var(--orange); background: rgba(251,146,60,.08); }
-.rp-exhausted    { border-color: rgba(248,113,113,.4); color: var(--red);    background: var(--red-glow); }
+/* main 3-column layout */
+.pg-main { display:grid; grid-template-columns:240px 1fr 220px; flex:1; overflow:hidden; }
 
-.btn-sim-hdr {
-  padding: 7px 16px; border-radius: var(--r-sm);
-  border: 1px solid var(--cyan); background: var(--cyan-glow);
-  color: var(--cyan); font-family: inherit; font-size: 12px; font-weight: 600;
-  cursor: pointer; letter-spacing: .02em; transition: all .15s;
-}
-.btn-sim-hdr:hover { background: rgba(56,189,248,.22); box-shadow: 0 0 14px rgba(56,189,248,.2); }
-
-/* ── MAIN GRID ───────────────────────────────────────── */
-main {
-  flex: 1; min-height: 0;
-  display: grid;
-  grid-template-columns: 252px 1fr 272px;
-}
-
-/* ── SHARED PANEL ────────────────────────────────────── */
+/* ── LEFT PANEL ── */
 .panel {
-  border-right: 1px solid var(--border);
-  overflow-y: auto; overflow-x: hidden;
-  padding: 16px;
-  background: rgba(30,41,59,.5);
+  border-right:1px solid var(--border);
+  overflow-y:auto; padding:14px 12px;
+  display:flex; flex-direction:column; gap:10px;
 }
-.panel:last-child { border-right: none; }
-
 .sec-title {
-  font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 12px;
-  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  font-size:10px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted);
+  padding-bottom:6px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:6px;
 }
 
-/* ── LEFT: CONTROLS ──────────────────────────────────── */
-.cg { margin-bottom: 16px; }
-.clabel { font-size: 11px; font-weight: 500; color: var(--dim); margin-bottom: 6px; display: block; }
+/* tooltip system */
+.tip-wrap { position:relative; display:inline-flex; align-items:center; margin-left:auto; }
+.tip-icon {
+  width:15px; height:15px; border-radius:50%;
+  background:var(--surface3); color:var(--muted);
+  font-size:9px; font-weight:700; cursor:help;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid var(--border); flex-shrink:0;
+}
+.tip-box {
+  display:none; position:absolute; bottom:calc(100% + 8px);
+  left:50%; transform:translateX(-50%);
+  min-width:220px; max-width:280px;
+  background:#1e293b; border:1px solid var(--border2);
+  border-radius:var(--r); padding:10px 12px;
+  font-size:11px; color:var(--dim); line-height:1.6;
+  z-index:200; pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.tip-box::after {
+  content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:6px solid transparent; border-top-color:#1e293b;
+}
+.tip-wrap:hover .tip-box { display:block; }
+
+.cg { display:flex; flex-direction:column; gap:6px; }
+.clabel { font-size:11px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px; }
 
 .inp {
-  width: 100%; padding: 7px 10px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--r-sm); color: var(--text);
-  font-family: inherit; font-size: 12px; transition: border-color .15s;
+  width:100%; padding:6px 8px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); font-family:inherit; font-size:12px;
 }
-.inp:focus { outline: none; border-color: var(--cyan); }
+.inp:focus { outline:none; border-color:var(--cyan); }
+
+.btn {
+  padding:7px 12px; border-radius:var(--r-sm);
+  border:1px solid var(--border); background:var(--surface2);
+  color:var(--dim); cursor:pointer; font-family:inherit;
+  font-size:12px; font-weight:500; transition:all .15s;
+}
+.btn:hover:not(:disabled) { border-color:var(--border2); color:var(--text); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn.prime { border-color:rgba(56,189,248,.4); color:var(--cyan); background:var(--cyan-glow); }
+.btn.prime:hover:not(:disabled) { background:rgba(56,189,248,.2); }
+.btn.go   { border-color:rgba(74,222,128,.4); color:var(--green); background:var(--green-glow); }
+.btn.go:hover:not(:disabled) { background:rgba(74,222,128,.2); }
+.btn.danger { border-color:rgba(248,113,113,.4); color:var(--red); background:var(--red-glow); }
+.btn.full-w { width:100%; text-align:center; }
 
 /* sliders */
-.sl-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.sl-tag { font-size: 11px; font-weight: 600; width: 46px; }
-.sl-tag.fd { color: var(--feed); }
-.sl-tag.rl { color: var(--reels); }
-.sl-tag.st { color: var(--stories); }
-.sl-val { font-size: 12px; width: 40px; text-align: right; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.sl-row { display:flex; align-items:center; gap:6px; }
+.sl-label { font-size:11px; font-weight:600; width:52px; flex-shrink:0; }
+.sl-label.fd { color:var(--feed); }
+.sl-label.rl { color:var(--reels); }
+.sl-label.st { color:var(--stories); }
+input[type=range] { flex:1; accent-color:var(--cyan); height:3px; }
+input[type=range].fd { accent-color:var(--feed); }
+input[type=range].rl { accent-color:var(--reels); }
+input[type=range].st { accent-color:var(--stories); }
+.sl-val { font-size:11px; font-weight:600; width:36px; text-align:right; color:var(--text); }
 
-input[type=range] {
-  flex: 1; -webkit-appearance: none;
-  height: 3px; background: var(--border); border-radius: 2px; outline: none;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 14px; height: 14px;
-  border-radius: 50%; cursor: pointer; border: 2px solid var(--bg);
-}
-input[type=range].fd::-webkit-slider-thumb { background: var(--feed);    box-shadow: 0 0 6px var(--feed); }
-input[type=range].rl::-webkit-slider-thumb { background: var(--reels);   box-shadow: 0 0 6px var(--reels); }
-input[type=range].st::-webkit-slider-thumb { background: var(--stories); box-shadow: 0 0 6px var(--stories); }
-input[type=range].sp::-webkit-slider-thumb { background: var(--cyan);    box-shadow: 0 0 6px var(--cyan); }
-
-.alloc-footer {
-  display: flex; justify-content: space-between;
-  font-size: 11px; margin-top: 2px; color: var(--muted);
+.alloc-total {
+  padding:8px 10px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  font-size:11px; display:flex; justify-content:space-between;
 }
 
-/* attribution toggle */
-.attr-tog { display: flex; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+/* attribution */
+.attr-opts { display:flex; flex-direction:column; gap:4px; }
 .attr-opt {
-  flex: 1; padding: 7px 6px; text-align: center; font-size: 11px; font-weight: 500;
-  cursor: pointer; color: var(--muted); transition: all .15s; letter-spacing: .02em;
+  padding:7px 10px; border-radius:var(--r-sm);
+  border:1px solid var(--border); background:var(--surface2);
+  color:var(--dim); cursor:pointer; font-size:11px;
+  transition:all .15s;
 }
-.attr-opt:hover { background: var(--surface2); color: var(--dim); }
-.attr-opt.on { background: var(--cyan-glow); color: var(--cyan); }
+.attr-opt:hover { border-color:var(--border2); color:var(--text); }
+.attr-opt.on  { border-color:var(--cyan); color:var(--cyan); background:var(--cyan-glow); }
 
-/* feature pills */
-.feat-grid { display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto; }
+/* feature grid */
+.feat-grid { display:flex; flex-wrap:wrap; gap:4px; }
 .fpill {
-  padding: 2px 7px; font-size: 10px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: 3px;
-  cursor: pointer; color: var(--muted); transition: all .12s; user-select: none;
+  padding:2px 7px; border-radius:4px;
+  border:1px solid var(--border); background:var(--surface2);
+  font-size:10px; color:var(--muted); cursor:pointer;
+  transition:all .12s;
 }
-.fpill:hover  { border-color: var(--purple); color: var(--purple); }
-.fpill.sel    { border-color: var(--purple); background: rgba(167,139,250,.15); color: var(--purple); }
-.fpill.locked { opacity: .2; cursor: not-allowed; }
-#fc-lbl { font-size: 10px; color: var(--purple); margin-left: 4px; }
+.fpill:hover  { border-color:var(--border2); color:var(--dim); }
+.fpill.sel    { background:var(--cyan-glow); border-color:var(--cyan); color:var(--cyan); }
+.fpill.locked { opacity:.4; cursor:not-allowed; }
 
-/* legal */
+/* task 4 */
 .legal-sel {
-  width: 100%; padding: 7px 10px; background: var(--surface2);
-  border: 1px solid rgba(248,113,113,.5); border-radius: var(--r-sm);
-  color: var(--red); font-family: inherit; font-size: 12px;
+  width:100%; padding:6px 8px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); font-family:inherit; font-size:12px;
 }
+.legal-sel:focus { outline:none; border-color:var(--red); }
 
-/* buttons */
-.btn {
-  width: 100%; padding: 8px;
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface2); color: var(--dim);
-  font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: .03em;
-  cursor: pointer; text-align: center; text-transform: uppercase; transition: all .15s;
+/* action buttons */
+.action-row { display:flex; gap:6px; }
+.action-row .btn { flex:1; }
+
+/* speed */
+.spd-row { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); }
+.spd-row input { flex:1; }
+
+/* task info strip */
+.task-info {
+  padding:10px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  font-size:11px; line-height:1.6;
 }
-.btn:hover  { border-color: var(--border2); color: var(--text); background: var(--surface3); }
-.btn.prime  { border-color: var(--cyan);  color: var(--cyan);  background: var(--cyan-glow); }
-.btn.prime:hover  { background: rgba(56,189,248,.22); box-shadow: 0 0 14px rgba(56,189,248,.15); }
-.btn.go     { border-color: rgba(74,222,128,.5); color: var(--green); background: var(--green-glow); }
-.btn.go:hover     { background: rgba(74,222,128,.2); box-shadow: 0 0 14px rgba(74,222,128,.15); }
-.btn.danger { border-color: rgba(248,113,113,.5); color: var(--red); background: var(--red-glow); }
-.btn:disabled { opacity: .25; cursor: not-allowed; }
-.btn-row { display: flex; gap: 6px; }
+.ti-row { display:flex; justify-content:space-between; padding:2px 0; }
+.ti-key { color:var(--muted); }
+.ti-val { color:var(--text); font-weight:600; }
+.ti-desc { color:var(--dim); margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:11px; line-height:1.5; }
 
-.spd-row { display: flex; align-items: center; gap: 8px; font-size: 11px; margin: 8px 0; }
-.spd-row label { color: var(--muted); }
+/* ── CENTER ── */
+.center { display:flex; flex-direction:column; overflow:hidden; }
 
-.sep { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
-
-/* ── CENTER ──────────────────────────────────────────── */
-.center {
-  display: flex; flex-direction: column;
-  overflow: hidden; padding: 16px; gap: 12px;
-  background: rgba(15,23,42,.3);
-}
-
-/* Campaign cards */
-.cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-
+/* campaign cards */
+.cards { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:12px; flex-shrink:0; }
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--r-lg);
-  padding: 16px; position: relative; overflow: hidden;
-  transition: transform .12s, box-shadow .25s;
+  border-radius:var(--r-lg); background:var(--surface);
+  border:1px solid var(--border); padding:12px;
+  position:relative; overflow:hidden;
+  transition: transform .1s, border-color .2s;
 }
 .card::after {
-  content: ''; position: absolute;
-  top: 0; left: 0; right: 0; height: 3px; border-radius: var(--r-lg) var(--r-lg) 0 0;
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
 }
-.card.fd::after { background: linear-gradient(90deg, var(--feed), rgba(56,189,248,0)); }
-.card.rl::after { background: linear-gradient(90deg, var(--reels), rgba(167,139,250,0)); }
-.card.st::after { background: linear-gradient(90deg, var(--stories), rgba(251,146,60,0)); }
-
-@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.012); box-shadow:0 4px 24px rgba(56,189,248,.12)} }
-.card.pop { animation: pulse .4s ease-out; }
-
-@keyframes auditPulse { 0%,100%{box-shadow:0 0 0 rgba(248,113,113,0)} 50%{box-shadow:0 0 20px rgba(248,113,113,.4)} }
-.card.suspended { border-color: var(--red); animation: auditPulse 1.2s infinite; }
-
-.card-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.cname { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.cname.fd { color: var(--feed); }
-.cname.rl { color: var(--reels); }
-.cname.st { color: var(--stories); }
-.pbadge {
-  font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px;
-  border: 1px solid var(--border); color: var(--muted); background: var(--surface2);
-}
-
-.roas-block { text-align: center; margin: 4px 0 12px; }
-.roas-num {
-  font-size: 2.4rem; font-weight: 900; letter-spacing: -.04em; line-height: 1;
-  transition: color .3s;
-}
-.roas-num.hi { color: var(--green);  text-shadow: 0 0 20px rgba(74,222,128,.3); }
-.roas-num.md { color: var(--yellow); }
-.roas-num.lo { color: var(--red); }
-.roas-lbl { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
-
-/* CI bar */
-.ci-wrap { position: relative; height: 4px; background: var(--surface2); border-radius: 2px; margin: 8px 0; }
-.ci-range { position: absolute; height: 100%; border-radius: 2px; background: rgba(167,139,250,.3); border: 1px solid rgba(167,139,250,.5); }
-.ci-pin   { position: absolute; width: 2px; height: 8px; top: -2px; background: var(--purple); border-radius: 1px; }
-
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.stat-item { }
-.stat-k { font-size: 10px; color: var(--muted); font-weight: 500; }
-.stat-v { font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-
-.spend-tag {
-  text-align: center; margin-top: 10px; padding: 5px;
-  background: var(--surface2); border-radius: var(--r-sm);
-  font-size: 13px; font-weight: 700; color: var(--cyan);
-}
-
+.card.fd::after { background:linear-gradient(90deg,var(--feed),rgba(56,189,248,0)); }
+.card.rl::after { background:linear-gradient(90deg,var(--reels),rgba(167,139,250,0)); }
+.card.st::after { background:linear-gradient(90deg,var(--stories),rgba(251,146,60,0)); }
+.card.pop { animation:cardPop .25s ease-out; }
+@keyframes cardPop { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+.card.suspended { opacity:.6; }
 .susp-ov {
-  position: absolute; inset: 0; border-radius: var(--r-lg);
-  background: rgba(248,113,113,.08);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: .15em; text-transform: uppercase;
+  position:absolute; inset:0;
+  background:rgba(248,113,113,.07);
+  border:1px solid rgba(248,113,113,.3);
+  border-radius:var(--r-lg);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; color:var(--red);
+}
+.card-name { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:4px; }
+.card.fd .card-name { color:var(--feed); }
+.card.rl .card-name { color:var(--reels); }
+.card.st .card-name { color:var(--stories); }
+.roas-num { font-size:2rem; font-weight:900; letter-spacing:-.04em; line-height:1; margin-bottom:4px; }
+.roas-num.hi { color:var(--green); }
+.roas-num.md { color:var(--cyan); }
+.roas-num.lo { color:var(--red); }
+.roas-label { font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:8px; }
+.ci-wrap { height:8px; background:var(--surface2); border-radius:4px; position:relative; margin-bottom:8px; overflow:hidden; }
+.ci-range { position:absolute; top:0; bottom:0; background:rgba(56,189,248,.25); border-radius:4px; }
+.ci-pin   { position:absolute; top:-1px; bottom:-1px; width:2px; background:var(--cyan); border-radius:1px; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
+.stat-item { padding:5px 6px; background:var(--surface2); border-radius:var(--r-sm); }
+.stat-k { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.stat-v { font-size:12px; font-weight:700; color:var(--text); }
+.spend-tag {
+  position:absolute; top:10px; right:10px;
+  padding:3px 8px; border-radius:12px;
+  background:var(--surface3); border:1px solid var(--border);
+  font-size:11px; font-weight:700; color:var(--text);
 }
 
 /* regime bar */
 .regime-bar {
-  padding: 8px 14px; border-radius: var(--r);
-  border: 1px solid var(--border); background: var(--surface);
-  font-size: 12px; display: flex; align-items: center; justify-content: space-between;
-  flex-shrink: 0;
+  padding:8px 12px; flex-shrink:0;
+  display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);
 }
-.noise-dots { display: flex; gap: 4px; align-items: center; }
-.ndot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: all .3s; }
-#regime-desc { color: var(--dim); }
-.regime-step { color: var(--muted); font-size: 12px; }
-.regime-step strong { color: var(--cyan); font-weight: 600; }
+.noise-dots { display:flex; gap:4px; }
+.ndot { width:8px; height:8px; border-radius:50%; background:var(--border); transition:all .3s; }
+.regime-txt { font-size:11px; color:var(--dim); }
+.rb-progress { margin-left:auto; font-size:11px; color:var(--muted); }
 
-/* chart */
-.chart-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.chart-hdr { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
-.chart-canvas-wrap { flex: 1; min-height: 0; position: relative; }
-
-/* ── RIGHT PANEL ─────────────────────────────────────── */
-
-/* audit alert */
-.audit-alert {
-  display: none; border: 1px solid var(--red); border-radius: var(--r);
-  padding: 12px; margin-bottom: 14px;
-  background: var(--red-glow); text-align: center;
+/* chart area */
+.chart-wrap { flex:1; min-height:0; padding:10px 12px; position:relative; }
+.chart-label {
+  font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:6px;
+  display:flex; align-items:center; gap:6px;
 }
-.audit-alert.on { display: block; animation: auditPulse 1.2s infinite; }
-.aa-title { color: var(--red); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3px; }
-.aa-camp  { color: var(--text); font-size: 13px; font-weight: 600; }
-.aa-sub   { color: var(--muted); font-size: 10px; margin-top: 4px; }
+
+/* log */
+.step-log {
+  height:90px; overflow-y:auto; padding:6px 10px;
+  border-top:1px solid var(--border);
+  font-size:11px; font-family:'Courier New',monospace;
+  background:var(--bg);
+}
+.ll       { padding:1px 0; }
+.ll.ok    { color:var(--green); }
+.ll.wn    { color:var(--yellow); }
+.ll.er    { color:var(--red); }
+.ll.nfo   { color:var(--cyan); }
+
+/* ── RIGHT PANEL ── */
+.rpanel {
+  border-left:1px solid var(--border);
+  overflow-y:auto; padding:14px 12px;
+  display:flex; flex-direction:column; gap:12px;
+}
 
 /* epsilon arc */
-.eps-section { text-align: center; margin-bottom: 14px; }
-.eps-lbl { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
-.eps-svg { width: 110px; height: 68px; margin: 0 auto; display: block; }
+.eps-arc-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.eps-arc-wrap svg { overflow:visible; }
 
-/* meter bars */
-.meter-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
-.meter-k { color: var(--muted); font-weight: 500; }
-.meter-v { font-weight: 600; font-variant-numeric: tabular-nums; }
-.mbar-wrap { height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
-.mbar { height: 100%; border-radius: 3px; transition: width .5s ease; }
-.mbar.eps-m { background: linear-gradient(90deg, var(--purple), var(--cyan)); }
-.mbar.bud-m { background: linear-gradient(90deg, var(--red), var(--green)); }
+/* meters */
+.meter { display:flex; flex-direction:column; gap:4px; }
+.meter-hdr { display:flex; justify-content:space-between; align-items:center; font-size:11px; }
+.meter-k { color:var(--muted); font-weight:600; }
+.meter-v { font-weight:700; }
+.mbar-wrap { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+.mbar { height:100%; border-radius:3px; transition:width .4s ease; }
+.bud-m { background:linear-gradient(90deg,var(--green),rgba(74,222,128,.4)); }
+.eps-m { background:linear-gradient(90deg,var(--purple),rgba(167,139,250,.4)); }
 
-/* live metrics */
-.metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 2px; }
-.metric-card {
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--r-sm); padding: 8px 10px;
-}
-.metric-card .mk { font-size: 10px; color: var(--muted); font-weight: 500; margin-bottom: 2px; }
-.metric-card .mv { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* metrics */
+.metric-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); }
+.metric-row:last-child { border-bottom:none; }
+.mk { font-size:11px; color:var(--muted); }
+.mv { font-size:14px; font-weight:700; }
 
 /* score panel */
-#score-panel { display: none; }
-.score-header { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
-.score-big { font-size: 2.4rem; font-weight: 900; color: var(--cyan); text-shadow: 0 0 20px rgba(56,189,248,.3); margin-bottom: 10px; letter-spacing: -.04em; }
-.bd-row { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 5px; }
-.bd-k { color: var(--muted); flex: 1; font-weight: 500; }
-.bd-bwrap { flex: 1.5; height: 3px; background: var(--surface2); border-radius: 2px; }
-.bd-b { height: 100%; border-radius: 2px; background: var(--cyan); transition: width .5s; }
-.bd-v { color: var(--cyan); width: 36px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-
-/* task info */
-.ti-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-.ti-item { }
-.ti-k { font-size: 10px; color: var(--muted); font-weight: 500; }
-.ti-v { font-size: 12px; font-weight: 600; color: var(--text); }
-.task-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
-
-/* step log */
-.step-log {
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--r-sm); padding: 8px 10px;
-  height: 160px; overflow-y: auto;
-  font-family: 'Menlo', 'Consolas', monospace; font-size: 10.5px; line-height: 1.7;
+.score-panel {
+  padding:12px; border-radius:var(--r);
+  background:rgba(74,222,128,.06); border:1px solid rgba(74,222,128,.2);
 }
-.ll     { color: var(--muted); }
-.ll.ok  { color: var(--green); }
-.ll.wn  { color: var(--yellow); }
-.ll.er  { color: var(--red); }
-.ll.nfo { color: var(--cyan); }
+.score-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:4px; }
+.score-big { font-size:2rem; font-weight:900; letter-spacing:-.04em; margin-bottom:8px; }
+.bd-row { display:flex; align-items:center; gap:6px; padding:3px 0; }
+.bd-k { font-size:10px; color:var(--muted); width:100px; flex-shrink:0; text-transform:capitalize; }
+.bd-bwrap { flex:1; height:4px; background:var(--surface2); border-radius:2px; }
+.bd-b { height:4px; background:var(--cyan); border-radius:2px; }
+.bd-v { font-size:11px; font-weight:600; width:34px; text-align:right; }
 
-/* ── SIMULATE MODAL ──────────────────────────────────── */
-#sim-modal {
-  display: none; position: fixed; inset: 0; z-index: 900;
-  background: rgba(15,23,42,.85); backdrop-filter: blur(10px);
-  align-items: center; justify-content: center;
+/* guide box */
+.guide-box {
+  padding:12px; border-radius:var(--r);
+  background:rgba(56,189,248,.05);
+  border:1px solid rgba(56,189,248,.2);
+  font-size:11px; line-height:1.65; color:var(--dim);
 }
-#sim-modal.on { display: flex; }
-.sim-box {
-  width: min(860px, 96vw); max-height: 92vh;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+.guide-box strong { color:var(--cyan); display:block; margin-bottom:4px; font-size:11px; }
+.guide-step { display:flex; gap:6px; padding:4px 0; }
+.gs-num {
+  width:16px; height:16px; border-radius:50%;
+  background:var(--cyan-glow); border:1px solid rgba(56,189,248,.4);
+  color:var(--cyan); font-size:9px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.sim-hdr {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
-  background: rgba(56,189,248,.04);
-}
-.sim-title { font-size: 13px; font-weight: 700; color: var(--cyan); letter-spacing: .02em; }
-.sim-close { cursor: pointer; color: var(--muted); font-size: 18px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); transition: all .12s; }
-.sim-close:hover { color: var(--red); background: var(--red-glow); }
 
-.sim-body { padding: 20px; overflow-y: auto; flex: 1; }
-.sim-controls { display: grid; grid-template-columns: 1fr 1fr 120px auto; gap: 10px; align-items: end; margin-bottom: 14px; }
-.sim-field label { font-size: 11px; font-weight: 500; color: var(--dim); display: block; margin-bottom: 5px; }
-.sim-sel, .sim-inp {
-  width: 100%; padding: 8px 10px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--r-sm); color: var(--text); font-family: inherit; font-size: 12px;
+/* audit */
+.audit-alert {
+  display:none; padding:10px 12px; margin:0 12px;
+  border-radius:var(--r); border:1px solid rgba(248,113,113,.4);
+  background:var(--red-glow); flex-shrink:0;
 }
-.sim-sel:focus, .sim-inp:focus { outline: none; border-color: var(--cyan); }
-.btn-run { padding: 8px 20px; border-radius: var(--r-sm); border: 1px solid rgba(74,222,128,.5); background: var(--green-glow); color: var(--green); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .15s; }
-.btn-run:hover { background: rgba(74,222,128,.2); }
-.btn-run:disabled { opacity: .4; cursor: not-allowed; }
+.audit-alert.on { display:block; }
+.aa-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--red); margin-bottom:4px; }
+.aa-camp  { font-size:13px; font-weight:700; color:var(--text); }
+.aa-hint  { font-size:11px; color:var(--dim); margin-top:4px; }
 
-.sim-hint { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
-.sim-hint strong { color: var(--cyan); font-weight: 600; }
-
-.sim-results { display: none; }
-.sim-results.on { display: block; }
-.sim-score-row {
-  display: flex; align-items: flex-start; gap: 20px;
-  padding: 14px 16px; border-radius: var(--r); margin-bottom: 14px;
-  background: var(--surface2); border: 1px solid var(--border);
+/* audit flash overlay */
+#audit-flash {
+  display:none; position:fixed; inset:0; z-index:999;
+  background:rgba(248,113,113,.08); pointer-events:none;
+  border:3px solid var(--red);
 }
-.sim-score-left { text-align: center; min-width: 80px; }
-.sim-score-lbl { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
-.sim-score-big { font-size: 2.2rem; font-weight: 900; color: var(--cyan); letter-spacing: -.04em; }
-.sim-strategy-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
-.sim-bd { flex: 1; }
-.sim-bd-row { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 5px; }
-.sim-bd-k { color: var(--muted); flex: 1; font-weight: 500; }
-.sim-bd-bw { flex: 1.5; height: 3px; background: var(--bg); border-radius: 2px; }
-.sim-bd-b  { height: 100%; border-radius: 2px; background: var(--cyan); }
-.sim-bd-v  { color: var(--cyan); width: 36px; text-align: right; font-weight: 600; }
-
-.sim-trace-hdr {
-  display: grid; font-size: 10px; font-weight: 600; color: var(--muted);
-  letter-spacing: .06em; text-transform: uppercase;
-  padding: 6px 10px; border-bottom: 1px solid var(--border);
-  border-radius: var(--r-sm) var(--r-sm) 0 0;
-  background: var(--surface2);
-  grid-template-columns: 36px 70px 70px 70px 70px 56px 1fr;
-}
-.sim-trace-body { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--r-sm) var(--r-sm); }
-.sim-trace-row {
-  display: grid; font-size: 11px;
-  padding: 6px 10px; border-bottom: 1px solid rgba(51,65,85,.5);
-  grid-template-columns: 36px 70px 70px 70px 70px 56px 1fr;
-  font-variant-numeric: tabular-nums;
-  transition: background .1s;
-}
-.sim-trace-row:hover { background: var(--surface2); }
-.str-step { color: var(--muted); font-weight: 600; }
-.str-roas.hi { color: var(--green); font-weight: 600; }
-.str-roas.md { color: var(--yellow); font-weight: 600; }
-.str-roas.lo { color: var(--red); font-weight: 600; }
-.str-oracle { color: var(--purple); }
-.str-eps { color: var(--cyan); }
-.str-pen { color: var(--red); font-size: 10px; font-weight: 600; }
-.str-warn { color: var(--yellow); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ── AUDIT FLASH ──────────────────────────────────────── */
-#audit-flash { display: none; position: fixed; inset: 0; z-index: 999; pointer-events: none; background: rgba(248,113,113,.15); }
+#audit-flash.on { display:block; animation:flashOut 1.8s ease-out forwards; }
 @keyframes flashOut { 0%{opacity:1} 100%{opacity:0} }
-#audit-flash.on { display: block; animation: flashOut 1.8s ease-out forwards; }
 
-/* ── SCROLLBARS ──────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+/* ══════════════════════════════════════════════════════
+   SIMULATE PAGE
+══════════════════════════════════════════════════════ */
+.sim-page-wrap { max-width:1100px; margin:0 auto; padding:32px 24px 80px; }
+.sim-page-wrap h2 { font-size:22px; font-weight:700; margin-bottom:6px; }
+.sim-page-wrap .sub { font-size:13px; color:var(--dim); margin-bottom:32px; }
+
+.sim-layout { display:grid; grid-template-columns:280px 1fr; gap:20px; align-items:start; }
+
+/* controls card */
+.sim-ctrl-card {
+  padding:20px; border-radius:var(--r-lg);
+  background:var(--surface); border:1px solid var(--border);
+  display:flex; flex-direction:column; gap:14px;
+}
+.sim-field { display:flex; flex-direction:column; gap:6px; }
+.sim-field label {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--muted);
+  display:flex; align-items:center; gap:6px;
+}
+.sim-sel, .sim-inp {
+  width:100%; padding:8px 10px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); font-family:inherit; font-size:12px;
+}
+.sim-sel:focus, .sim-inp:focus { outline:none; border-color:var(--cyan); }
+.sim-hint-box {
+  padding:10px; border-radius:var(--r-sm);
+  background:rgba(56,189,248,.05); border:1px solid rgba(56,189,248,.2);
+  font-size:11px; color:var(--dim); line-height:1.6;
+}
+.btn-run-big {
+  width:100%; padding:11px; border-radius:var(--r-sm);
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border:none; color:#fff; font-family:inherit;
+  font-size:13px; font-weight:700; cursor:pointer;
+  transition:opacity .15s;
+}
+.btn-run-big:hover:not(:disabled) { opacity:.88; }
+.btn-run-big:disabled { opacity:.45; cursor:not-allowed; }
+
+/* results area */
+.sim-results-card {
+  padding:20px; border-radius:var(--r-lg);
+  background:var(--surface); border:1px solid var(--border);
+}
+.sim-results-empty {
+  padding:48px 20px; text-align:center;
+  color:var(--muted); font-size:13px; line-height:1.7;
+}
+.sim-results-empty .big-icon { font-size:36px; margin-bottom:12px; }
+
+/* score row */
+.sim-score-section {
+  display:grid; grid-template-columns:auto 1fr; gap:20px;
+  margin-bottom:20px; align-items:start;
+}
+.sim-score-left { text-align:center; }
+.sim-score-lbl { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+.sim-score-big { font-size:3rem; font-weight:900; letter-spacing:-.05em; line-height:1; }
+.sim-strategy-badge {
+  display:inline-block; margin-top:6px; padding:3px 10px;
+  border-radius:12px; font-size:11px; font-weight:600;
+  background:var(--cyan-glow); color:var(--cyan);
+  border:1px solid rgba(56,189,248,.3);
+}
+.sim-breakdown { padding-left:8px; border-left:2px solid var(--border); }
+.sim-bd-row { display:flex; align-items:center; gap:8px; padding:3px 0; }
+.sim-bd-k { font-size:11px; color:var(--muted); width:130px; flex-shrink:0; text-transform:capitalize; }
+.sim-bd-bw { flex:1; height:4px; background:var(--surface2); border-radius:2px; }
+.sim-bd-b  { height:4px; background:var(--cyan); border-radius:2px; }
+.sim-bd-v  { font-size:11px; font-weight:600; width:38px; text-align:right; }
+
+/* explanation */
+.sim-explanation {
+  padding:10px 12px; border-radius:var(--r-sm);
+  background:rgba(251,191,36,.06);
+  border:1px solid rgba(251,191,36,.2);
+  font-size:11px; color:var(--yellow); line-height:1.6;
+  margin-bottom:16px;
+}
+
+/* trace table */
+.trace-section h4 { font-size:12px; font-weight:700; color:var(--dim); margin-bottom:10px; text-transform:uppercase; letter-spacing:.06em; }
+.trace-table { width:100%; border-collapse:collapse; font-size:11px; }
+.trace-table th {
+  padding:6px 10px; text-align:left;
+  font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); border-bottom:1px solid var(--border);
+}
+.trace-table td {
+  padding:5px 10px; border-bottom:1px solid rgba(51,65,85,.5);
+}
+.trace-table tr:last-child td { border-bottom:none; }
+.trace-table tr:hover td { background:var(--surface2); }
+.td-step { font-weight:700; color:var(--dim); }
+.td-hi { color:var(--green); font-weight:600; }
+.td-md { color:var(--cyan); font-weight:600; }
+.td-lo { color:var(--red); font-weight:600; }
+.td-pen { color:var(--orange); font-size:10px; font-weight:700; }
+.td-warn { color:var(--yellow); font-size:10px; }
+
+/* strategy cards */
+.strategy-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+.strat-card {
+  padding:12px 14px; border-radius:var(--r);
+  border:1px solid var(--border); background:var(--surface2);
+  cursor:pointer; transition:all .15s;
+}
+.strat-card.sel { border-color:var(--cyan); background:var(--cyan-glow); }
+.strat-card h4 { font-size:12px; font-weight:700; margin-bottom:4px; }
+.strat-card p  { font-size:11px; color:var(--dim); line-height:1.5; }
+.strat-card.sel h4 { color:var(--cyan); }
+
+/* task description cards on simulate page */
+.sim-task-desc {
+  padding:14px; border-radius:var(--r);
+  background:var(--surface2); border:1px solid var(--border);
+  font-size:11px; color:var(--dim); line-height:1.65; margin-top:10px;
+}
+.sim-task-desc strong { display:block; color:var(--text); font-size:12px; margin-bottom:4px; }
+
+/* scrollbars */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background:var(--border2); }
 </style>
 </head>
 <body>
 <div id="audit-flash"></div>
 
-<div class="app">
-
-<!-- ═══════════ HEADER ═══════════ -->
-<header>
-  <div class="logo">
+<!-- ════════════════════ TOP NAV ════════════════════ -->
+<nav class="topnav">
+  <a class="nav-logo" href="#" onclick="showPage('home');return false;">
     <div class="logo-mark">M</div>
     <div class="logo-text">Meta<span>Signal</span></div>
+  </a>
+
+  <div class="nav-links">
+    <button class="navbtn active" id="nav-home"       onclick="showPage('home')">Home</button>
+    <button class="navbtn"        id="nav-playground" onclick="showPage('playground')">Playground</button>
+    <button class="navbtn"        id="nav-simulate"   onclick="showPage('simulate')">Simulate</button>
   </div>
 
-  <div class="task-tabs">
+  <div class="nav-right">
+    <div class="nav-badge">Meta × HF Hackathon 2026</div>
+  </div>
+</nav>
+
+<!-- ════════════════════ HOME PAGE ════════════════════ -->
+<div class="page active" id="page-home">
+<div class="home-wrap">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-eyebrow">🏆 Hackathon Submission — RL Environment</div>
+    <h1>Ad Budget Optimization<br>Under Privacy Constraints</h1>
+    <p>
+      Meta-Signal is a reinforcement learning environment that simulates the real-world challenge
+      of optimizing ad spend when signal is noisy, privacy budgets are limited, and regulators
+      can suspend your campaigns mid-flight.
+    </p>
+    <div class="hero-btns">
+      <button class="btn-hero primary" onclick="showPage('playground')">▶ Open Playground</button>
+      <button class="btn-hero secondary" onclick="showPage('simulate')">⚡ Run Simulation</button>
+    </div>
+  </div>
+
+  <!-- Why This Matters -->
+  <div class="section-hdr"><h2>Why This Matters</h2><div class="sh-line"></div></div>
+  <div class="concepts" style="margin-bottom:32px;">
+    <div class="concept-card">
+      <div class="cc-icon red">📉</div>
+      <h3>Meta's $232B Crisis</h3>
+      <p>In Q3 2022, Apple's ATT prompt let users opt out of cross-app tracking. Meta lost 25% of its ad signal overnight — wiping <strong>$232B</strong> in market cap in a single day. This is the exact problem we simulate.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon cyan">🔐</div>
+      <h3>Differential Privacy</h3>
+      <p>Real ad systems can't share exact conversion data. We model <strong>ε-differential privacy</strong> with Laplace noise — the same mechanism Meta uses in AEM (Aggregated Event Measurement).</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon green">🤖</div>
+      <h3>RL Over Heuristics</h3>
+      <p>Rule-based budget allocation breaks under noise. A trained RL agent learns to infer signal from noisy observations — directly applicable to Meta's <strong>Advantage+</strong> signal recovery pipeline.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon purple">⚖️</div>
+      <h3>Regulatory Reality</h3>
+      <p>GDPR Art. 17 and CCPA create real operational risk. Task 4 simulates adversarial regulators that can <strong>suspend campaigns mid-episode</strong>, testing how quickly agents adapt.</p>
+    </div>
+  </div>
+
+  <!-- 4 Tasks -->
+  <div class="section-hdr"><h2>4 Challenges to Solve</h2><div class="sh-line"></div></div>
+  <div class="task-grid" style="margin-bottom:40px;">
+    <div class="task-card t1" onclick="launchPlayground(1)">
+      <div class="tc-num">Task 1</div>
+      <div class="tc-name">Budget Optimisation</div>
+      <div class="tc-desc">Allocate $1000/day across Feed, Reels, and Stories to maximize ROAS. Requires an explore → learn → exploit arc to score well.</div>
+      <span class="tc-tag">Target 1.5× ROAS</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t2" onclick="launchPlayground(2)">
+      <div class="tc-num">Task 2</div>
+      <div class="tc-name">Noisy Signal Recovery</div>
+      <div class="tc-desc">High Laplace noise from step 1. At step 9, Reels goes viral — CVR doubles. Can you spot the shift through the noise?</div>
+      <span class="tc-tag">Signal-to-Noise Challenge</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t3" onclick="launchPlayground(3)">
+      <div class="tc-num">Task 3</div>
+      <div class="tc-name">Privacy Frontier</div>
+      <div class="tc-desc">Every feature and step costs epsilon (ε). Balance data richness against budget depletion. Exhausted epsilon = near-random signal.</div>
+      <span class="tc-tag">ε = 3.0 Budget</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t4" onclick="launchPlayground(4)">
+      <div class="tc-num">Task 4</div>
+      <div class="tc-name">Adversarial Regulator</div>
+      <div class="tc-desc">At step 5, a regulator suspends one campaign. You must set a legal reason code and reallocate budget or face penalties.</div>
+      <span class="tc-tag" style="background:var(--red-glow);color:var(--red)">Regulatory Risk</span>
+      <div class="tc-arrow">→</div>
+    </div>
+  </div>
+
+  <!-- Privacy explainer -->
+  <div class="privacy-box">
+    <div class="pb-title">🔒 Privacy Regimes — What You'll Encounter</div>
+    <div class="pb-text">As epsilon depletes, data quality degrades through four regimes. Your strategy must adapt in real time.</div>
+    <div class="pb-grid">
+      <div class="pb-item">
+        <strong style="color:var(--green)">Standard</strong>
+        <span>Clean signal, minimal noise. Conversions are reliable estimates.</span>
+      </div>
+      <div class="pb-item">
+        <strong style="color:var(--cyan)">High Noise</strong>
+        <span>Laplace noise elevated. Use confidence intervals — don't trust point estimates.</span>
+      </div>
+      <div class="pb-item">
+        <strong style="color:var(--yellow)">Minimal Data</strong>
+        <span>Data minimisation enforced. Only 1 feature allowed. Be conservative.</span>
+      </div>
+      <div class="pb-item">
+        <strong style="color:var(--red)">Exhausted</strong>
+        <span>Epsilon depleted. Signal is near-random. Maintain allocation from last good step.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Start -->
+  <div class="section-hdr"><h2>How to Test It</h2><div class="sh-line"></div></div>
+  <div class="qs-steps">
+    <div class="qs-step">
+      <div class="qs-num">1</div>
+      <h4>Go to Playground</h4>
+      <p>Click <strong>Playground</strong> in the nav. Select a Task tab (start with Task 1).</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">2</div>
+      <h4>Initialise Episode</h4>
+      <p>Click <strong>↺ Initialise Episode</strong>. The environment resets with fresh market conditions.</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">3</div>
+      <h4>Set Allocations</h4>
+      <p>Drag the Feed / Reels / Stories sliders to set your daily budget split (max $1000 total).</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">4</div>
+      <h4>Step or Auto-play</h4>
+      <p>Click <strong>▶ Step</strong> to advance manually, or <strong>Auto</strong> to play through all 10 steps.</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">5</div>
+      <h4>Read the Signals</h4>
+      <p>Watch ROAS cards and the chart. When ROAS exceeds the orange target line — you're winning.</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">6</div>
+      <h4>Compute Score</h4>
+      <p>After 10 steps, click <strong>✦ Compute Score</strong> to get a 0–1 grade with explanation.</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">7</div>
+      <h4>Try Simulate</h4>
+      <p>Go to <strong>Simulate</strong> to auto-run built-in strategies (equal / greedy / conservative) and compare scores.</p>
+    </div>
+    <div class="qs-step">
+      <div class="qs-num">8</div>
+      <h4>Try All Tasks</h4>
+      <p>Switch to Task 2 to hunt the viral shift. Task 3 for privacy pressure. Task 4 for the regulator challenge.</p>
+    </div>
+  </div>
+
+</div><!-- /home-wrap -->
+</div><!-- /page-home -->
+
+<!-- ════════════════════ PLAYGROUND PAGE ════════════════════ -->
+<div class="page" id="page-playground">
+<div class="pg-wrap">
+
+  <!-- Task bar -->
+  <div class="pg-taskbar">
+    <span class="pg-taskbar-label">Task</span>
     <button class="ttab on"  onclick="selTask(1)">Task 1 — Optimise</button>
     <button class="ttab"     onclick="selTask(2)">Task 2 — Noise</button>
     <button class="ttab"     onclick="selTask(3)">Task 3 — Privacy</button>
     <button class="ttab t4"  onclick="selTask(4)">Task 4 — Audit</button>
-  </div>
-
-  <div class="hdr-right">
-    <button class="btn-sim-hdr" onclick="openSim()">⚡ Simulate</button>
-    <div class="hdr-chip">Step <strong id="h-step">—</strong></div>
-    <div class="regime-pill rp-standard" id="h-regime">Standard</div>
-    <div class="hdr-chip">ε <strong id="h-eps" style="color:var(--purple)">—</strong></div>
-  </div>
-</header>
-
-<!-- ═══════════ SIMULATE MODAL ═══════════ -->
-<div id="sim-modal" onclick="simModalClick(event)">
-  <div class="sim-box">
-    <div class="sim-hdr">
-      <span class="sim-title">Simulate — run a full episode with a built-in strategy</span>
-      <span class="sim-close" onclick="closeSim()">✕</span>
+    <div class="tip-wrap" style="margin-left:6px;">
+      <span class="tip-icon">?</span>
+      <div class="tip-box">Each task is a different challenge.<br><strong>Task 1</strong> — maximize ROAS with $1000 budget.<br><strong>Task 2</strong> — recover signal from heavy noise.<br><strong>Task 3</strong> — balance privacy vs performance.<br><strong>Task 4</strong> — respond to a regulator audit.</div>
     </div>
-    <div class="sim-body">
-      <div class="sim-controls">
-        <div class="sim-field">
-          <label>TASK</label>
-          <select class="sim-sel" id="sim-task">
-            <option value="1">Task 1 — Budget Optimisation</option>
-            <option value="2">Task 2 — Noisy Signal Recovery</option>
-            <option value="3">Task 3 — Privacy Frontier</option>
-            <option value="4">Task 4 — Adversarial Regulator</option>
-          </select>
+    <div class="pg-taskbar-right">
+      <div class="hdr-chip">Step <strong id="h-step">—</strong></div>
+      <div class="regime-pill rp-standard" id="h-regime">Standard</div>
+      <div class="hdr-chip">ε <strong id="h-eps" style="color:var(--purple)">—</strong></div>
+    </div>
+  </div>
+
+  <!-- 3-col layout -->
+  <div class="pg-main">
+
+    <!-- ── LEFT: CONTROLS ── -->
+    <div class="panel">
+      <div class="sec-title">Episode Controls
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box">Start here. Select a Task tab above, then click Initialise to begin. Each episode has 10 steps (= 10 time periods of campaign management).</div>
         </div>
-        <div class="sim-field">
-          <label>STRATEGY</label>
-          <select class="sim-sel" id="sim-strategy">
-            <option value="equal">equal — even 3-way split</option>
-            <option value="greedy">greedy — 80% to best signal</option>
-            <option value="conservative">conservative — 60/25/15 split</option>
-          </select>
-        </div>
-        <div class="sim-field">
-          <label>SEED</label>
-          <input class="sim-inp" type="number" id="sim-seed" value="42">
-        </div>
-        <button class="btn-run" id="sim-run-btn" onclick="runSim()">▶ Run</button>
       </div>
-      <p class="sim-hint">
-        <strong>equal</strong> — splits budget evenly every step, no adaptation. &nbsp;|&nbsp;
-        <strong>greedy</strong> — 80% to best noisy-conversion campaign (watch correlation penalty fire). &nbsp;|&nbsp;
-        <strong>conservative</strong> — 60/25/15 mix, stays below 70% to avoid auction-overlap penalty.
-      </p>
-      <div class="sim-results" id="sim-results">
-        <div class="sim-score-row">
-          <div class="sim-score-left">
-            <div class="sim-score-lbl">Score</div>
-            <div class="sim-score-big" id="sim-score-big">—</div>
-            <div class="sim-strategy-lbl" id="sim-strategy-lbl"></div>
+
+      <div class="cg">
+        <label class="clabel">
+          Seed (blank = random)
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box">The seed controls random market conditions. Same seed = same CTR, conversions, and noise every time. Use <strong>42</strong> for reproducible testing.</div>
           </div>
-          <div class="sim-bd" id="sim-breakdown"></div>
+        </label>
+        <input class="inp" type="number" id="seed" value="42">
+        <button class="btn prime full-w" onclick="doReset()">↺ Initialise Episode</button>
+      </div>
+
+      <!-- Task Info -->
+      <div class="task-info">
+        <div class="ti-row"><span class="ti-key">Steps</span><span class="ti-val" id="ti-steps">—</span></div>
+        <div class="ti-row"><span class="ti-key">Target ROAS</span><span class="ti-val" id="ti-roas">—</span></div>
+        <div class="ti-row"><span class="ti-key">Max Features</span><span class="ti-val" id="ti-feats">—</span></div>
+        <div class="ti-row"><span class="ti-key">ε Budget</span><span class="ti-val" id="ti-eps">—</span></div>
+        <div class="ti-row"><span class="ti-key">Daily Budget</span><span class="ti-val" id="ti-bud">—</span></div>
+        <div class="ti-desc" id="ti-desc">Select a task to see details.</div>
+      </div>
+
+      <!-- Budget Allocation -->
+      <div class="sec-title">
+        Budget Allocation
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box">Split your daily budget across 3 ad placements. <strong>Feed</strong> = Facebook News Feed. <strong>Reels</strong> = Instagram short video. <strong>Stories</strong> = Instagram Stories. Total must stay ≤ daily budget.</div>
         </div>
-        <div class="sim-trace-hdr">
-          <span>Step</span><span>ROAS</span><span>Oracle</span><span>Reward</span><span>ε Rem</span><span>Penalty</span><span>Warning</span>
+      </div>
+      <div class="cg">
+        <div class="sl-row">
+          <span class="sl-label fd">Feed</span>
+          <input type="range" class="fd" id="sl-feed"    min="0" max="500" value="200" oninput="slChange('feed')">
+          <span class="sl-val" id="sv-feed">$200</span>
         </div>
-        <div class="sim-trace-body" id="sim-trace-body"></div>
+        <div class="sl-row">
+          <span class="sl-label rl">Reels</span>
+          <input type="range" class="rl" id="sl-reels"   min="0" max="500" value="100" oninput="slChange('reels')">
+          <span class="sl-val" id="sv-reels">$100</span>
+        </div>
+        <div class="sl-row">
+          <span class="sl-label st">Stories</span>
+          <input type="range" class="st" id="sl-stories" min="0" max="500" value="100" oninput="slChange('stories')">
+          <span class="sl-val" id="sv-stories">$100</span>
+        </div>
+        <div class="alloc-total">
+          <span style="color:var(--muted)">Total</span>
+          <span><span id="alloc-tot" style="color:var(--cyan);font-weight:600">$400</span>
+            / <span id="alloc-cap" style="color:var(--muted)">$1000</span></span>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- ═══════════ MAIN ═══════════ -->
-<main>
-
-  <!-- ── LEFT: CONTROLS ── -->
-  <div class="panel">
-    <div class="sec-title">Episode Controls</div>
-
-    <div class="cg">
-      <label class="clabel">Seed (blank = random)</label>
-      <input class="inp" type="number" id="seed" value="42" style="margin-bottom:8px">
-      <button class="btn prime" onclick="doReset()">↺ Initialise Episode</button>
-    </div>
-
-    <div class="cg">
-      <label class="clabel">Budget Allocation</label>
-      <div class="sl-row">
-        <span class="sl-tag fd">Feed</span>
-        <input type="range" class="fd" id="sl-feed"    min="0" max="500" value="200" oninput="slChange('feed')">
-        <span class="sl-val" id="sv-feed">$200</span>
+      <!-- Attribution -->
+      <div class="sec-title">
+        Attribution Method
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box"><strong>Last Click</strong> — free, standard attribution. Conversion credited to last ad clicked.<br><br><strong>Probabilistic</strong> — ML-based cross-device matching. More accurate but costs +0.2ε per step. Use sparingly in Task 3.</div>
+        </div>
       </div>
-      <div class="sl-row">
-        <span class="sl-tag rl">Reels</span>
-        <input type="range" class="rl" id="sl-reels"   min="0" max="500" value="100" oninput="slChange('reels')">
-        <span class="sl-val" id="sv-reels">$100</span>
-      </div>
-      <div class="sl-row">
-        <span class="sl-tag st">Stories</span>
-        <input type="range" class="st" id="sl-stories" min="0" max="500" value="100" oninput="slChange('stories')">
-        <span class="sl-val" id="sv-stories">$100</span>
-      </div>
-      <div class="alloc-footer">
-        <span>Total spend</span>
-        <span><span id="alloc-tot" style="color:var(--cyan);font-weight:600">$400</span>
-              <span style="color:var(--muted)"> / </span>
-              <span id="alloc-cap" style="color:var(--muted)">$1000</span></span>
-      </div>
-    </div>
-
-    <div class="cg">
-      <label class="clabel">Attribution Method</label>
-      <div class="attr-tog">
+      <div class="attr-opts">
         <div class="attr-opt on" id="ao-lc"   onclick="setAttr('last_click')">Last Click</div>
-        <div class="attr-opt"    id="ao-prob" onclick="setAttr('probabilistic')">Probabilistic +0.2ε</div>
+        <div class="attr-opt"    id="ao-prob" onclick="setAttr('probabilistic')">Probabilistic  <span style="color:var(--muted);font-size:10px">+0.2ε</span></div>
       </div>
-    </div>
 
-    <div class="cg">
-      <label class="clabel">Feature Mask <span id="fc-lbl">(0 selected)</span></label>
+      <!-- Feature Mask -->
+      <div class="sec-title">
+        Feature Mask <span id="fc-lbl" style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(0 selected)</span>
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box"><strong>I1–I13</strong> = impression-level signals (reach, freq, viewability).<br><strong>C1–C26</strong> = click-level signals (device, placement, creative).<br><br>Each feature costs <strong>0.05ε</strong> per step. In Task 3 only 1 feature is allowed. More features = richer data but faster privacy depletion.</div>
+        </div>
+      </div>
       <div class="feat-grid" id="feat-grid"></div>
-    </div>
 
-    <div class="cg" id="t4-ctrl" style="display:none">
-      <label class="clabel" style="color:var(--red)">⚠ Legal Reason Code</label>
-      <select class="legal-sel" id="legal-code">
-        <option value="">— select code —</option>
-        <option value="GDPR_ART17">GDPR_ART17 — Right to Erasure</option>
-        <option value="DPA_NOTICE">DPA_NOTICE — Data Protection Notice</option>
-        <option value="REGULATORY_HOLD">REGULATORY_HOLD — Regulatory Order</option>
-      </select>
-    </div>
+      <!-- Task 4 controls -->
+      <div class="cg" id="t4-ctrl" style="display:none">
+        <div class="sec-title" style="color:var(--red)">
+          Legal Response
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box">When the regulator fires an audit (step 5), you must halt the flagged campaign and select the legal basis. Failure to do so incurs penalties that reduce your final score.</div>
+          </div>
+        </div>
+        <label class="clabel">Reason Code</label>
+        <select class="legal-sel" id="legal-code">
+          <option value="">— select reason —</option>
+          <option value="GDPR_ART17">GDPR Art.17 — Right to Erasure</option>
+          <option value="GDPR_ART21">GDPR Art.21 — Right to Object</option>
+          <option value="CCPA_OPT_OUT">CCPA — Opt-Out of Sale</option>
+          <option value="COPPA">COPPA — Minor User Protection</option>
+        </select>
+      </div>
 
-    <hr class="sep">
-
-    <div class="cg">
-      <div class="btn-row" style="margin-bottom:8px">
-        <button class="btn prime" id="step-btn" onclick="doStep()" disabled>▶ Step</button>
-        <button class="btn" id="auto-btn" onclick="togAuto()" disabled>Auto</button>
+      <!-- Actions -->
+      <div class="sec-title">Step Controls
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box"><strong>▶ Step</strong> — advance one time period using your current allocation.<br><strong>Auto</strong> — plays through all remaining steps automatically at the selected speed.<br><strong>✦ Score</strong> — compute your final grade (enabled when episode ends).</div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn prime" id="step-btn" onclick="doStep()"  disabled>▶ Step</button>
+        <button class="btn"       id="auto-btn" onclick="togAuto()" disabled>Auto</button>
       </div>
       <div class="spd-row">
-        <label>Speed</label>
+        <span>Speed</span>
         <input type="range" class="sp" id="spd-sl" min="200" max="2000" value="900" step="100" oninput="spdChange()">
         <span id="spd-val" style="color:var(--cyan);font-weight:600">0.9s</span>
       </div>
-      <button class="btn go" id="grade-btn" onclick="doGrade()" disabled>✦ Compute Score</button>
-    </div>
-  </div>
+      <button class="btn go full-w" id="grade-btn" onclick="doGrade()" disabled>✦ Compute Score</button>
 
-  <!-- ── CENTER ── -->
-  <div class="center">
+    </div><!-- /panel -->
 
-    <!-- Campaign cards -->
-    <div class="cards" id="cards">
-      <!-- FEED -->
-      <div class="card fd" id="card-camp_feed">
-        <div class="card-hdr">
-          <span class="cname fd">Feed</span>
-          <span class="pbadge">Feed</span>
-        </div>
-        <div class="roas-block">
+    <!-- ── CENTER ── -->
+    <div class="center">
+
+      <!-- Campaign cards -->
+      <div class="cards">
+        <div class="card fd" id="card-camp_feed">
+          <div class="card-name">Feed</div>
           <div class="roas-num md" id="rn-camp_feed">—</div>
-          <div class="roas-lbl">Est. ROAS</div>
+          <div class="roas-label">ROAS (return on ad spend)</div>
+          <div class="ci-wrap">
+            <div class="ci-range" id="ci-camp_feed" style="left:20%;right:20%"></div>
+            <div class="ci-pin"   id="cp-camp_feed" style="left:49%"></div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_feed">—</div></div>
+            <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_feed">—</div></div>
+            <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_feed">—</div></div>
+          </div>
+          <div class="spend-tag" id="sp-camp_feed">$—</div>
         </div>
-        <div class="ci-wrap">
-          <div class="ci-range" id="ci-camp_feed" style="left:20%;right:20%"></div>
-          <div class="ci-pin"   id="cp-camp_feed" style="left:49%"></div>
-        </div>
-        <div class="stat-grid">
-          <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_feed">—</div></div>
-          <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_feed">—</div></div>
-          <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_feed">—</div></div>
-        </div>
-        <div class="spend-tag" id="sp-camp_feed">$—</div>
-      </div>
 
-      <!-- REELS -->
-      <div class="card rl" id="card-camp_reels">
-        <div class="card-hdr">
-          <span class="cname rl">Reels</span>
-          <span class="pbadge">Reels</span>
-        </div>
-        <div class="roas-block">
+        <div class="card rl" id="card-camp_reels">
+          <div class="card-name">Reels</div>
           <div class="roas-num md" id="rn-camp_reels">—</div>
-          <div class="roas-lbl">Est. ROAS</div>
+          <div class="roas-label">ROAS (return on ad spend)</div>
+          <div class="ci-wrap">
+            <div class="ci-range" id="ci-camp_reels" style="left:20%;right:20%"></div>
+            <div class="ci-pin"   id="cp-camp_reels" style="left:49%"></div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_reels">—</div></div>
+            <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_reels">—</div></div>
+            <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_reels">—</div></div>
+          </div>
+          <div class="spend-tag" id="sp-camp_reels">$—</div>
         </div>
-        <div class="ci-wrap">
-          <div class="ci-range" id="ci-camp_reels" style="left:20%;right:20%"></div>
-          <div class="ci-pin"   id="cp-camp_reels" style="left:49%"></div>
-        </div>
-        <div class="stat-grid">
-          <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_reels">—</div></div>
-          <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_reels">—</div></div>
-          <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_reels">—</div></div>
-        </div>
-        <div class="spend-tag" id="sp-camp_reels">$—</div>
-      </div>
 
-      <!-- STORIES -->
-      <div class="card st" id="card-camp_stories">
-        <div class="card-hdr">
-          <span class="cname st">Stories</span>
-          <span class="pbadge">Stories</span>
-        </div>
-        <div class="roas-block">
+        <div class="card st" id="card-camp_stories">
+          <div class="card-name">Stories</div>
           <div class="roas-num md" id="rn-camp_stories">—</div>
-          <div class="roas-lbl">Est. ROAS</div>
+          <div class="roas-label">ROAS (return on ad spend)</div>
+          <div class="ci-wrap">
+            <div class="ci-range" id="ci-camp_stories" style="left:20%;right:20%"></div>
+            <div class="ci-pin"   id="cp-camp_stories" style="left:49%"></div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_stories">—</div></div>
+            <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_stories">—</div></div>
+            <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_stories">—</div></div>
+          </div>
+          <div class="spend-tag" id="sp-camp_stories">$—</div>
         </div>
-        <div class="ci-wrap">
-          <div class="ci-range" id="ci-camp_stories" style="left:20%;right:20%"></div>
-          <div class="ci-pin"   id="cp-camp_stories" style="left:49%"></div>
-        </div>
-        <div class="stat-grid">
-          <div class="stat-item"><div class="stat-k">Noisy Conv</div><div class="stat-v" id="nc-camp_stories">—</div></div>
-          <div class="stat-item"><div class="stat-k">CTR</div><div class="stat-v" id="ct-camp_stories">—</div></div>
-          <div class="stat-item"><div class="stat-k">Impressions</div><div class="stat-v" id="im-camp_stories">—</div></div>
-        </div>
-        <div class="spend-tag" id="sp-camp_stories">$—</div>
       </div>
-    </div>
 
-    <!-- Regime bar -->
-    <div class="regime-bar">
-      <div style="display:flex;align-items:center;gap:10px">
+      <!-- Audit alert -->
+      <div class="audit-alert" id="audit-alert">
+        <div class="aa-title">⛔ Regulatory Audit</div>
+        <div class="aa-camp" id="aa-camp">Campaign suspended</div>
+        <div class="aa-hint">Go to Legal Response (left panel), select a reason code, then continue stepping.</div>
+      </div>
+
+      <!-- Regime bar -->
+      <div class="regime-bar">
         <div class="noise-dots" id="ndots">
-          <div class="ndot"></div><div class="ndot"></div>
           <div class="ndot"></div><div class="ndot"></div><div class="ndot"></div>
+          <div class="ndot"></div><div class="ndot"></div>
         </div>
-        <span id="regime-desc">Waiting for episode…</span>
+        <span class="regime-txt" id="regime-desc">Waiting for episode…</span>
+        <span class="rb-progress">
+          Step <strong id="rb-step">0</strong> / <span id="rb-total" style="color:var(--muted)">—</span>
+        </span>
       </div>
-      <span class="regime-step">
-        Step <strong id="rb-step">0</strong> / <span id="rb-total" style="color:var(--muted)">—</span>
-      </span>
-    </div>
 
-    <!-- ROAS chart -->
-    <div class="chart-wrap">
-      <div class="chart-hdr">ROAS — Agent vs Oracle</div>
-      <div class="chart-canvas-wrap">
+      <!-- Chart -->
+      <div class="chart-wrap">
+        <div class="chart-label">
+          📈 ROAS over Time
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box"><strong style="color:var(--cyan)">Agent ROAS</strong> — what you actually achieved (noisy).<br><strong style="color:var(--purple)">Oracle</strong> — perfect-information benchmark.<br><strong style="color:var(--orange)">Target</strong> — the task's minimum ROAS goal.<br><br>Gap between Agent and Oracle shows the cost of privacy noise.</div>
+          </div>
+        </div>
         <canvas id="chart-canvas"></canvas>
       </div>
-    </div>
-  </div>
 
-  <!-- ── RIGHT: METRICS ── -->
-  <div class="panel">
-    <div class="sec-title">Performance Metrics</div>
-
-    <!-- Audit alert -->
-    <div class="audit-alert" id="audit-alert">
-      <div class="aa-title">⚠ Regulatory Audit</div>
-      <div class="aa-camp" id="aa-camp">Campaign suspended</div>
-      <div class="aa-sub">Set legal_reason_code and zero allocation</div>
-    </div>
-
-    <!-- Epsilon arc -->
-    <div class="eps-section">
-      <div class="eps-lbl">Privacy Budget ε</div>
-      <svg class="eps-svg" viewBox="0 0 110 68">
-        <defs>
-          <linearGradient id="eg" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stop-color="#a78bfa"/>
-            <stop offset="100%" stop-color="#38bdf8"/>
-          </linearGradient>
-        </defs>
-        <path d="M8,64 A47,47 0 0,1 102,64" fill="none" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
-        <path d="M8,64 A47,47 0 0,1 102,64" fill="none" stroke="url(#eg)"
-              stroke-width="8" stroke-linecap="round"
-              stroke-dasharray="148" id="eps-arc" stroke-dashoffset="0"/>
-        <text x="55" y="59" text-anchor="middle" fill="#e2e8f0"
-              font-size="18" font-family="Inter,system-ui" font-weight="700" id="eps-num">—</text>
-        <text x="55" y="68" text-anchor="middle" fill="#64748b"
-              font-size="7" font-family="Inter,system-ui" font-weight="500" letter-spacing="1">EPSILON</text>
-      </svg>
-    </div>
-
-    <div class="cg">
-      <div class="meter-label">
-        <span class="meter-k">Budget</span>
-        <span class="meter-v" id="bud-val" style="color:var(--green)">—</span>
+      <!-- Log -->
+      <div class="step-log" id="step-log">
+        <div class="ll nfo">&gt; Welcome to Meta-Signal Playground. Click Initialise Episode to begin.</div>
+        <div class="ll nfo">&gt; Each step = 1 time period. Watch the ROAS chart vs the orange target line.</div>
       </div>
-      <div class="mbar-wrap"><div class="mbar bud-m" id="bud-bar" style="width:100%"></div></div>
-      <div class="meter-label">
-        <span class="meter-k">Epsilon</span>
-        <span class="meter-v" id="eps-val" style="color:var(--purple)">—</span>
+
+    </div><!-- /center -->
+
+    <!-- ── RIGHT PANEL ── -->
+    <div class="rpanel">
+
+      <!-- Guide -->
+      <div class="guide-box">
+        <strong>📖 How to play</strong>
+        <div class="guide-step"><div class="gs-num">1</div><span>Click <em>Initialise</em> to start</span></div>
+        <div class="guide-step"><div class="gs-num">2</div><span>Set sliders to split your budget</span></div>
+        <div class="guide-step"><div class="gs-num">3</div><span>Click <em>Step</em> — watch ROAS update</span></div>
+        <div class="guide-step"><div class="gs-num">4</div><span>Shift budget to best campaign</span></div>
+        <div class="guide-step"><div class="gs-num">5</div><span>After step 10 → Compute Score</span></div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
+          Keep total spend ≤ budget cap. Stay under 70% on one campaign to avoid the <span style="color:var(--orange)">correlation penalty</span>.
+        </div>
       </div>
-      <div class="mbar-wrap"><div class="mbar eps-m" id="eps-bar" style="width:100%"></div></div>
+
+      <!-- Epsilon arc -->
+      <div class="sec-title">Privacy Budget (ε)
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box">Epsilon (ε) is your privacy budget. Every step and every feature you request costs ε. When it depletes, signal quality degrades through 4 regimes: Standard → High Noise → Minimal Data → Exhausted.</div>
+        </div>
+      </div>
+      <div class="eps-arc-wrap">
+        <svg width="96" height="56" viewBox="0 0 96 56">
+          <defs>
+            <linearGradient id="eg" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%"   stop-color="#4ade80"/>
+              <stop offset="50%"  stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#f87171"/>
+            </linearGradient>
+          </defs>
+          <path d="M8,50 A40,40 0 1,1 88,50" fill="none" stroke="#1e293b" stroke-width="8"/>
+          <path d="M8,50 A40,40 0 1,1 88,50" fill="none" stroke="url(#eg)" stroke-width="8"
+                stroke-linecap="round"
+                stroke-dasharray="148" id="eps-arc" stroke-dashoffset="0"/>
+          <text x="48" y="46" text-anchor="middle" fill="#e2e8f0"
+                font-size="18" font-family="Inter,system-ui" font-weight="700" id="eps-num">—</text>
+        </svg>
+      </div>
+
+      <!-- Meters -->
+      <div class="meter">
+        <div class="meter-hdr">
+          <span class="meter-k">Budget Rem.</span>
+          <span class="meter-v" id="bud-val" style="color:var(--green)">—</span>
+        </div>
+        <div class="mbar-wrap"><div class="mbar bud-m" id="bud-bar" style="width:100%"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-hdr">
+          <span class="meter-k">ε Remaining</span>
+          <span class="meter-v" id="eps-val" style="color:var(--purple)">—</span>
+        </div>
+        <div class="mbar-wrap"><div class="mbar eps-m" id="eps-bar" style="width:100%"></div></div>
+      </div>
+
+      <!-- Live metrics -->
+      <div class="sec-title">Live Metrics</div>
+      <div class="metric-row"><div class="mk">Step Reward</div><div class="mv" id="m-reward" style="color:var(--green)">—</div></div>
+      <div class="metric-row"><div class="mk">Oracle ROAS</div><div class="mv" id="m-oracle">—</div></div>
+      <div class="metric-row"><div class="mk">Violations</div><div class="mv" id="m-viol" style="color:var(--red)">0</div></div>
+
+      <!-- Score panel -->
+      <div class="score-panel" id="score-panel" style="display:none">
+        <div class="score-lbl">Final Score</div>
+        <div class="score-big" id="score-big">—</div>
+        <div id="bd-list"></div>
+      </div>
+
+    </div><!-- /rpanel -->
+  </div><!-- /pg-main -->
+</div><!-- /pg-wrap -->
+</div><!-- /page-playground -->
+
+<!-- ════════════════════ SIMULATE PAGE ════════════════════ -->
+<div class="page" id="page-simulate">
+<div class="sim-page-wrap">
+  <h2>⚡ Simulate Built-in Strategies</h2>
+  <p class="sub">
+    Run a complete 10-step episode automatically using one of three built-in allocation strategies.
+    Great for benchmarking — compare scores to see which strategy works best for each task.
+  </p>
+
+  <div class="sim-layout">
+
+    <!-- Controls -->
+    <div class="sim-ctrl-card">
+      <div class="sim-field">
+        <label>Task
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box">Each task has different mechanics. Task 1 is the baseline. Task 2 has a market shift at step 9. Task 3 drains epsilon fast. Task 4 fires a regulatory audit.</div>
+          </div>
+        </label>
+        <select class="sim-sel" id="sim-task" onchange="updateSimDesc()">
+          <option value="1">Task 1 — Budget Optimisation</option>
+          <option value="2">Task 2 — Noisy Signal Recovery</option>
+          <option value="3">Task 3 — Privacy Frontier</option>
+          <option value="4">Task 4 — Adversarial Regulator</option>
+        </select>
+        <div class="sim-task-desc" id="sim-task-desc">
+          <strong>Task 1 — Budget Optimisation</strong>
+          Allocate $1000/day across Feed, Reels, Stories to maximise ROAS. The grader rewards an explore → learn → exploit arc. Target: 1.5× ROAS.
+        </div>
+      </div>
+
+      <div class="sim-field">
+        <label>Strategy
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box"><strong>equal</strong> — splits budget evenly 33/33/33. No adaptation. Good baseline.<br><br><strong>greedy</strong> — puts 80% on the campaign with highest noisy conversions. Can trigger the correlation penalty.<br><br><strong>conservative</strong> — 60/25/15 split, never exceeds 70% threshold. Avoids penalty.</div>
+          </div>
+        </label>
+        <div class="strategy-grid">
+          <div class="strat-card sel" id="sc-equal" onclick="selectStrat('equal')">
+            <h4>Equal</h4>
+            <p>33/33/33 every step</p>
+          </div>
+          <div class="strat-card" id="sc-greedy" onclick="selectStrat('greedy')">
+            <h4>Greedy</h4>
+            <p>80% to top signal</p>
+          </div>
+          <div class="strat-card" id="sc-conservative" onclick="selectStrat('conservative')">
+            <h4>Conservative</h4>
+            <p>60/25/15 safe split</p>
+          </div>
+        </div>
+        <input type="hidden" id="sim-strategy" value="equal">
+      </div>
+
+      <div class="sim-field">
+        <label>Random Seed
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box">Same seed = same market conditions. Change to 1, 2, 3… to test across different market scenarios. Compare how strategies perform across seeds.</div>
+          </div>
+        </label>
+        <input class="sim-inp" type="number" id="sim-seed" value="42">
+      </div>
+
+      <div class="sim-hint-box" id="sim-hint-box">
+        <strong style="color:var(--cyan)">equal</strong> — splits budget evenly every step, no adaptation. Useful as a baseline to compare against.
+      </div>
+
+      <button class="btn-run-big" id="sim-run-btn" onclick="runSim()">▶ Run Simulation</button>
+
+      <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6">
+        Results appear on the right.<br>
+        Try all 3 strategies on the same task to compare scores.
+      </div>
     </div>
 
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="mk">Last Reward</div>
-        <div class="mv" id="m-reward" style="color:var(--green)">—</div>
+    <!-- Results -->
+    <div class="sim-results-card" id="sim-results-card">
+      <div class="sim-results-empty" id="sim-empty">
+        <div class="big-icon">📊</div>
+        <strong>No results yet</strong><br>
+        Select a task and strategy, then click<br><strong>▶ Run Simulation</strong>
       </div>
-      <div class="metric-card">
-        <div class="mk">Oracle ROAS</div>
-        <div class="mv" id="m-oracle" style="color:var(--purple)">—</div>
-      </div>
-      <div class="metric-card" style="grid-column:1/-1">
-        <div class="mk">Regulatory Violations</div>
-        <div class="mv" id="m-viol" style="color:var(--red)">—</div>
+
+      <div id="sim-results" style="display:none">
+        <!-- Score -->
+        <div class="sim-score-section">
+          <div class="sim-score-left">
+            <div class="sim-score-lbl">Score</div>
+            <div class="sim-score-big" id="sim-score-big">—</div>
+            <div class="sim-strategy-badge" id="sim-strategy-lbl">—</div>
+          </div>
+          <div class="sim-breakdown" id="sim-breakdown"></div>
+        </div>
+
+        <!-- Explanation -->
+        <div class="sim-explanation" id="sim-explanation" style="display:none"></div>
+
+        <!-- Trace -->
+        <div class="trace-section">
+          <h4>Step-by-step trace
+            <span style="font-weight:400;color:var(--muted);font-size:10px;margin-left:6px">
+              ROAS = revenue/spend | Oracle = perfect-info benchmark | Penalty = correlation penalty fired
+            </span>
+          </h4>
+          <table class="trace-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>ROAS</th>
+                <th>Oracle</th>
+                <th>Reward</th>
+                <th>ε Left</th>
+                <th>Regime</th>
+                <th>Penalty</th>
+                <th>Warning</th>
+              </tr>
+            </thead>
+            <tbody id="sim-trace-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <hr class="sep">
-
-    <!-- Score panel -->
-    <div id="score-panel">
-      <div class="score-header">Final Score</div>
-      <div class="score-big" id="score-big">0.0000</div>
-      <div id="bd-list"></div>
-      <hr class="sep">
-    </div>
-
-    <!-- Task info -->
-    <div class="cg" id="task-info">
-      <div class="sec-title">Task Parameters</div>
-      <div class="ti-grid">
-        <div class="ti-item"><div class="ti-k">Max Steps</div>   <div class="ti-v" id="ti-steps">—</div></div>
-        <div class="ti-item"><div class="ti-k">Target ROAS</div> <div class="ti-v" id="ti-roas">—</div></div>
-        <div class="ti-item"><div class="ti-k">Max Features</div><div class="ti-v" id="ti-feats">—</div></div>
-        <div class="ti-item"><div class="ti-k">Epsilon</div>     <div class="ti-v" id="ti-eps">—</div></div>
-        <div class="ti-item"><div class="ti-k">Budget</div>      <div class="ti-v" id="ti-bud">—</div></div>
-      </div>
-      <div class="task-desc" id="ti-desc"></div>
-    </div>
-
-    <!-- Step log -->
-    <div class="sec-title" style="margin-top:8px">Step Log</div>
-    <div class="step-log" id="step-log">
-      <div class="ll nfo">&gt; Meta-Signal online</div>
-      <div class="ll">&gt; Select a task and initialise episode</div>
-    </div>
-  </div>
-
-</main>
-</div>
+  </div><!-- /sim-layout -->
+</div><!-- /sim-page-wrap -->
+</div><!-- /page-simulate -->
 
 <script>
-// ════════════════════════════════════════════
-// STATE
-// ════════════════════════════════════════════
-const API = window.location.origin;
+const API = '';
 const S = {
-  task:1, attr:'last_click', feats:new Set(),
-  maxFeats:5, targetRoas:1.5,
-  budInit:1000, epInit:3.0,
-  budRem:1000, epRem:3.0,
-  totalSteps:10, step:0,
-  active:false, done:false,
-  auto:false, autoTmr:null,
+  task:1, active:false, done:false, auto:false, autoTmr:null,
+  attr:'last_click', feats:new Set(), maxFeats:13,
+  targetRoas:1.5, totalSteps:10, budInit:1000, epInit:3.0,
+  budRem:0, epRem:0, step:0,
   roas:[], oracle:[],
-  flagged:null, audit:false,
-  violations:0, configs:{},
+  flagged:null, audit:false, violations:0, configs:{},
 };
 
 // ════════════════════════════════════════════
-// CHART.JS SETUP
+// PAGE NAVIGATION
+// ════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  // init chart only when playground becomes visible
+  if (id === 'playground' && !roasChart) initChart();
+}
+
+function launchPlayground(taskId) {
+  showPage('playground');
+  selTask(taskId);
+}
+
+// ════════════════════════════════════════════
+// SIMULATE PAGE HELPERS
+// ════════════════════════════════════════════
+const TASK_DESCS = {
+  1: { name:'Task 1 — Budget Optimisation', text:'Allocate $1000/day across Feed, Reels, Stories to maximise ROAS. The grader rewards an explore → learn → exploit arc. Target: 1.5× ROAS.' },
+  2: { name:'Task 2 — Noisy Signal Recovery', text:'Heavy Laplace noise from step 1. At step 9, Reels goes viral — its CVR doubles. Can your strategy detect and capitalize on the shift? Target: 1.2× ROAS.' },
+  3: { name:'Task 3 — Privacy Frontier', text:'Every feature request costs 0.05ε, every step costs ε. Balance data richness vs budget depletion. Exhausted epsilon = near-random signal. Target: 1.0× ROAS.' },
+  4: { name:'Task 4 — Adversarial Regulator', text:'At step 5, a regulator suspends one campaign (randomly chosen). The agent must halt it and reallocate. Strategies use GDPR_ART17 as the default reason code.' },
+};
+const STRAT_HINTS = {
+  equal:        '<strong style="color:var(--cyan)">equal</strong> — splits budget evenly every step, no adaptation. Useful as a baseline to compare against.',
+  greedy:       '<strong style="color:var(--purple)">greedy</strong> — 80% to the campaign with best noisy conversions. Aggressive, may trigger the correlation penalty.',
+  conservative: '<strong style="color:var(--green)">conservative</strong> — 60/25/15 split, always stays below 70% concentration. Avoids auction-overlap penalty.',
+};
+
+function updateSimDesc() {
+  const tid = parseInt(document.getElementById('sim-task').value);
+  const d = TASK_DESCS[tid];
+  document.getElementById('sim-task-desc').innerHTML = `<strong>${d.name}</strong>${d.text}`;
+}
+function selectStrat(s) {
+  document.getElementById('sim-strategy').value = s;
+  ['equal','greedy','conservative'].forEach(x =>
+    document.getElementById('sc-'+x).classList.toggle('sel', x===s));
+  document.getElementById('sim-hint-box').innerHTML = STRAT_HINTS[s];
+}
+
+// ════════════════════════════════════════════
+// CHART.JS
 // ════════════════════════════════════════════
 let roasChart = null;
 
@@ -864,70 +1381,28 @@ function initChart() {
     data: {
       labels: [],
       datasets: [
-        {
-          label: 'Agent ROAS',
-          data: [],
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56,189,248,.1)',
-          borderWidth: 2,
-          tension: 0.35,
-          fill: true,
-          pointBackgroundColor: '#38bdf8',
-          pointBorderColor: '#0f172a',
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-        {
-          label: 'Oracle',
-          data: [],
-          borderColor: '#a78bfa',
-          borderWidth: 1.5,
-          borderDash: [4,4],
-          tension: 0.35,
-          fill: false,
-          pointRadius: 0,
-        },
-        {
-          label: 'Target',
-          data: [],
-          borderColor: '#fb923c',
-          borderWidth: 1,
-          borderDash: [6,4],
-          pointRadius: 0,
-          fill: false,
-        },
+        { label:'Agent ROAS', data:[], borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)',
+          borderWidth:2, tension:.35, fill:true,
+          pointBackgroundColor:'#38bdf8', pointBorderColor:'#0f172a', pointBorderWidth:2, pointRadius:4, pointHoverRadius:6 },
+        { label:'Oracle', data:[], borderColor:'#a78bfa', borderWidth:1.5, borderDash:[4,4],
+          tension:.35, fill:false, pointRadius:0 },
+        { label:'Target', data:[], borderColor:'#fb923c', borderWidth:1,
+          borderDash:[6,4], pointRadius:0, fill:false },
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 200 },
+      responsive:true, maintainAspectRatio:false, animation:{ duration:200 },
       plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          align: 'end',
-          labels: { color:'#94a3b8', font:{ size:11, family:"Inter,system-ui" }, boxWidth:20, padding:16 }
-        },
-        tooltip: {
-          backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
+        legend:{ display:true, position:'top', align:'end',
+          labels:{ color:'#94a3b8', font:{ size:11, family:"Inter,system-ui" }, boxWidth:20, padding:16 }},
+        tooltip:{ backgroundColor:'#1e293b', borderColor:'#334155', borderWidth:1,
           titleColor:'#e2e8f0', bodyColor:'#94a3b8',
-          titleFont:{size:11,family:"Inter,system-ui"},
-          bodyFont:{size:11,family:"Inter,system-ui"},
-          padding:10,
-        }
+          titleFont:{size:11,family:"Inter,system-ui"}, bodyFont:{size:11,family:"Inter,system-ui"}, padding:10 }
       },
       scales: {
-        x: {
-          grid: { color:'rgba(51,65,85,.5)' },
-          ticks: { color:'#64748b', font:{ size:10, family:"Inter,system-ui" } }
-        },
-        y: {
-          grid: { color:'rgba(51,65,85,.5)' },
-          ticks: { color:'#64748b', font:{ size:10, family:"Inter,system-ui" } },
-          min: 0, suggestedMax: 4,
-        }
+        x:{ grid:{color:'rgba(51,65,85,.5)'}, ticks:{color:'#64748b',font:{size:10,family:"Inter,system-ui"}} },
+        y:{ grid:{color:'rgba(51,65,85,.5)'}, ticks:{color:'#64748b',font:{size:10,family:"Inter,system-ui"}},
+            min:0, suggestedMax:4 }
       }
     }
   });
@@ -941,7 +1416,6 @@ function clearChart() {
   roasChart.data.datasets[2].data = [];
   roasChart.update();
 }
-
 function updateChart() {
   if (!roasChart || !S.roas.length) return;
   const labels = S.roas.map((_,i) => `S${i+1}`);
@@ -951,7 +1425,6 @@ function updateChart() {
   roasChart.data.datasets[2].data = Array(labels.length).fill(S.targetRoas);
   roasChart.update('none');
 }
-
 function setTargetLine(t) {
   S.targetRoas = t;
   if (roasChart && S.roas.length) {
@@ -968,8 +1441,8 @@ function buildFeats() {
   g.innerHTML = '';
   [...Array.from({length:13},(_,i)=>`I${i+1}`),...Array.from({length:26},(_,i)=>`C${i+1}`)].forEach(f => {
     const d = document.createElement('div');
-    d.className = 'fpill'; d.id = `fp-${f}`; d.textContent = f;
-    d.onclick = () => togFeat(f);
+    d.className='fpill'; d.id=`fp-${f}`; d.textContent=f;
+    d.onclick=()=>togFeat(f);
     g.appendChild(d);
   });
 }
@@ -981,7 +1454,7 @@ function togFeat(f) {
     if (S.feats.size >= S.maxFeats) { log(`Max ${S.maxFeats} features allowed`, 'wn'); return; }
     S.feats.add(f); p.classList.add('sel');
   }
-  document.getElementById('fc-lbl').textContent = `(${S.feats.size}/${S.maxFeats})`;
+  document.getElementById('fc-lbl').textContent = `(${S.feats.size}/${S.maxFeats} selected)`;
 }
 
 // ════════════════════════════════════════════
@@ -997,11 +1470,11 @@ async function loadTasks() {
 
 function selTask(id) {
   S.task = id;
-  document.querySelectorAll('.ttab').forEach((t,i) => t.classList.toggle('on', i === id-1));
+  document.querySelectorAll('.ttab').forEach((t,i) => t.classList.toggle('on', i===id-1));
   const c = S.configs[id];
   if (!c) return;
-  S.maxFeats = c.max_features; S.targetRoas = c.target_roas;
-  S.totalSteps = c.max_steps; S.budInit = c.initial_budget; S.epInit = c.initial_epsilon;
+  S.maxFeats=c.max_features; S.targetRoas=c.target_roas;
+  S.totalSteps=c.max_steps; S.budInit=c.initial_budget; S.epInit=c.initial_epsilon;
   document.getElementById('ti-steps').textContent = c.max_steps;
   document.getElementById('ti-roas').textContent  = c.target_roas + 'x';
   document.getElementById('ti-feats').textContent = c.max_features;
@@ -1010,7 +1483,7 @@ function selTask(id) {
   document.getElementById('ti-desc').textContent  = c.description;
   document.getElementById('alloc-cap').textContent = '$' + c.initial_budget;
   ['feed','reels','stories'].forEach(k => document.getElementById(`sl-${k}`).max = c.initial_budget);
-  document.getElementById('t4-ctrl').style.display = id === 4 ? 'block' : 'none';
+  document.getElementById('t4-ctrl').style.display = id===4 ? 'block':'none';
   S.feats.clear();
   document.querySelectorAll('.fpill').forEach(p => p.classList.remove('sel','locked'));
   document.getElementById('fc-lbl').textContent = '(0 selected)';
@@ -1029,12 +1502,11 @@ async function doReset() {
     const r = await fetch(`${API}/reset`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     const obs = await r.json();
-    S.active = true; S.done = false; S.roas = []; S.oracle = [];
-    S.flagged = null; S.audit = false; S.violations = 0;
-    S.budRem = obs.total_budget_remaining; S.epRem = obs.epsilon_remaining;
-    S.step = obs.step;
-    applyObs(obs);
-    clearChart();
+    S.active=true; S.done=false; S.roas=[]; S.oracle=[];
+    S.flagged=null; S.audit=false; S.violations=0;
+    S.budRem=obs.total_budget_remaining; S.epRem=obs.epsilon_remaining;
+    S.step=obs.step;
+    applyObs(obs); clearChart();
     document.getElementById('step-btn').disabled  = false;
     document.getElementById('auto-btn').disabled  = false;
     document.getElementById('grade-btn').disabled = true;
@@ -1048,6 +1520,7 @@ async function doReset() {
     });
     document.getElementById('m-viol').textContent = '0';
     log(`Episode started — Task ${S.task} / Seed ${seed||'random'} / Budget $${obs.total_budget_remaining}`, 'nfo');
+    log(`Target ROAS: ${S.targetRoas}x — keep the chart line above the orange target.`, 'nfo');
   } catch(e) { log('Reset error: ' + e.message, 'er'); }
 }
 
@@ -1068,33 +1541,33 @@ async function doStep() {
   };
   try {
     const r = await fetch(`${API}/step`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(action) });
-    if (!r.ok) { const e = await r.json(); log('Step error: ' + (e.detail||JSON.stringify(e)), 'er'); return; }
+    if (!r.ok) { const e = await r.json(); log('Step error: '+(e.detail||JSON.stringify(e)), 'er'); return; }
     const res = await r.json();
     const obs = res.observation, inf = res.info;
-    S.step = obs.step; S.budRem = obs.total_budget_remaining; S.epRem = obs.epsilon_remaining;
+    S.step=obs.step; S.budRem=obs.total_budget_remaining; S.epRem=obs.epsilon_remaining;
     S.roas.push(inf.step_roas); S.oracle.push(inf.oracle_roas);
-    if (obs.audit_active && !S.audit) { S.audit = true; S.flagged = obs.flagged_campaign; fireAudit(obs.flagged_campaign); }
-    applyObs(obs);
-    updateChart();
+    if (obs.audit_active && !S.audit) { S.audit=true; S.flagged=obs.flagged_campaign; fireAudit(obs.flagged_campaign); }
+    applyObs(obs); updateChart();
     const rw = res.reward;
     const rew = document.getElementById('m-reward');
-    rew.textContent = rw.toFixed(4); rew.style.color = rw >= 0 ? 'var(--green)' : 'var(--red)';
+    rew.textContent=rw.toFixed(4); rew.style.color=rw>=0?'var(--green)':'var(--red)';
     document.getElementById('m-oracle').textContent = inf.oracle_roas.toFixed(4);
-    if (obs.regulatory_violation) { S.violations++; document.getElementById('m-viol').textContent = S.violations; }
+    if (obs.regulatory_violation) { S.violations++; document.getElementById('m-viol').textContent=S.violations; }
     ['camp_feed','camp_reels','camp_stories'].forEach(c => {
       const el = document.getElementById('card-'+c);
       el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
     });
-    const cls = inf.step_roas >= S.targetRoas ? 'ok' : 'wn';
-    log(`[${String(obs.step).padStart(2,'0')}] ROAS=${inf.step_roas.toFixed(3)} ε=${obs.epsilon_remaining.toFixed(3)} ${obs.privacy_regime.toUpperCase()} rwd=${rw.toFixed(3)}`, cls);
-    if (obs.regulatory_violation) log('  ⚠ Regulatory violation', 'er');
-    if (obs.warning) log('  ⚠ ' + obs.warning, 'wn');
+    const cls = inf.step_roas>=S.targetRoas?'ok':'wn';
+    log(`[${String(obs.step).padStart(2,'0')}] ROAS=${inf.step_roas.toFixed(3)}  Oracle=${inf.oracle_roas.toFixed(3)}  ε=${obs.epsilon_remaining.toFixed(3)}  ${obs.privacy_regime.toUpperCase()}  rwd=${rw.toFixed(3)}`, cls);
+    if (inf.correlation_penalty_active) log('  ⚡ Correlation penalty — one campaign got >70% of spend, others penalised 15%', 'wn');
+    if (obs.regulatory_violation) log('  ⚠ Regulatory violation — set a legal reason code', 'er');
+    if (obs.warning) log('  ℹ ' + obs.warning, 'wn');
     if (res.done) {
-      S.done = true; stopAuto();
-      document.getElementById('step-btn').disabled  = true;
-      document.getElementById('auto-btn').disabled  = true;
-      document.getElementById('grade-btn').disabled = false;
-      log('Episode complete — click Compute Score', 'nfo');
+      S.done=true; stopAuto();
+      document.getElementById('step-btn').disabled=true;
+      document.getElementById('auto-btn').disabled=true;
+      document.getElementById('grade-btn').disabled=false;
+      log('Episode complete — click ✦ Compute Score for your grade.', 'nfo');
     }
   } catch(e) { log('Step failed: ' + e.message, 'er'); }
 }
@@ -1104,22 +1577,21 @@ async function doGrade() {
     const r = await fetch(`${API}/grader`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:S.task}) });
     if (!r.ok) throw new Error(await r.text());
     const g = await r.json();
-    document.getElementById('score-panel').style.display = 'block';
+    document.getElementById('score-panel').style.display='block';
     const sb = document.getElementById('score-big');
-    sb.textContent = g.score.toFixed(4);
-    sb.style.color = g.score >= .7 ? 'var(--green)' : g.score >= .4 ? 'var(--yellow)' : 'var(--red)';
-    const blist = document.getElementById('bd-list');
-    blist.innerHTML = Object.entries(g.breakdown).map(([k,v]) => `
-      <div class="bd-row">
-        <span class="bd-k">${k.replace(/_/g,' ')}</span>
-        <div class="bd-bwrap"><div class="bd-b" style="width:${(v*100).toFixed(0)}%"></div></div>
-        <span class="bd-v">${v.toFixed(3)}</span>
-      </div>`).join('')
-      + (g.explanation ? `<div style="font-size:11px;color:var(--yellow);line-height:1.5;margin-top:10px;padding:8px 10px;border:1px solid rgba(251,191,36,.2);border-radius:var(--r-sm);background:rgba(251,191,36,.06)">${g.explanation}</div>` : '');
-    log(`Score: ${g.score.toFixed(4)}`, g.score >= .5 ? 'ok' : 'wn');
+    sb.textContent=g.score.toFixed(4);
+    sb.style.color=g.score>=.7?'var(--green)':g.score>=.4?'var(--yellow)':'var(--red)';
+    document.getElementById('bd-list').innerHTML =
+      Object.entries(g.breakdown).map(([k,v])=>`
+        <div class="bd-row">
+          <span class="bd-k">${k.replace(/_/g,' ')}</span>
+          <div class="bd-bwrap"><div class="bd-b" style="width:${(v*100).toFixed(0)}%"></div></div>
+          <span class="bd-v">${v.toFixed(3)}</span>
+        </div>`).join('')
+      + (g.explanation?`<div style="font-size:11px;color:var(--yellow);line-height:1.5;margin-top:10px;padding:8px 10px;border:1px solid rgba(251,191,36,.2);border-radius:var(--r-sm);background:rgba(251,191,36,.06)">${g.explanation}</div>`:'');
+    log(`Score: ${g.score.toFixed(4)}`, g.score>=.5?'ok':'wn');
     if (g.explanation) log('  ' + g.explanation, 'nfo');
-    Object.entries(g.breakdown).forEach(([k,v]) => log(`  ${k}: ${v.toFixed(4)}`, 'nfo'));
-  } catch(e) { log('Grade error: ' + e.message, 'er'); }
+  } catch(e) { log('Grade error: '+e.message, 'er'); }
 }
 
 // ════════════════════════════════════════════
@@ -1128,8 +1600,8 @@ async function doGrade() {
 function togAuto() {
   if (S.auto) { stopAuto(); }
   else {
-    S.auto = true;
-    document.getElementById('auto-btn').textContent = '■ Stop';
+    S.auto=true;
+    document.getElementById('auto-btn').textContent='■ Stop';
     document.getElementById('auto-btn').classList.add('danger');
     autoStep();
   }
@@ -1140,8 +1612,8 @@ async function autoStep() {
   if (!S.done) S.autoTmr = setTimeout(autoStep, parseInt(document.getElementById('spd-sl').value));
 }
 function stopAuto() {
-  S.auto = false; clearTimeout(S.autoTmr);
-  document.getElementById('auto-btn').textContent = 'Auto';
+  S.auto=false; clearTimeout(S.autoTmr);
+  document.getElementById('auto-btn').textContent='Auto';
   document.getElementById('auto-btn').classList.remove('danger');
 }
 
@@ -1152,155 +1624,163 @@ function applyObs(obs) {
   document.getElementById('h-step').textContent = `${obs.step}/${S.totalSteps}`;
   document.getElementById('h-eps').textContent  = obs.epsilon_remaining.toFixed(3);
   const rp = document.getElementById('h-regime');
-  rp.textContent  = obs.privacy_regime.replace(/_/g,' ');
-  rp.className    = 'regime-pill rp-' + obs.privacy_regime;
+  rp.textContent = obs.privacy_regime.replace(/_/g,' ');
+  rp.className   = 'regime-pill rp-' + obs.privacy_regime;
   const er = obs.epsilon_remaining / S.epInit;
   const br = obs.total_budget_remaining / S.budInit;
-  document.getElementById('eps-bar').style.width = (er*100) + '%';
-  document.getElementById('bud-bar').style.width = (br*100) + '%';
-  document.getElementById('eps-val').textContent  = obs.epsilon_remaining.toFixed(3);
-  document.getElementById('bud-val').textContent  = '$' + obs.total_budget_remaining.toFixed(0);
+  document.getElementById('eps-bar').style.width = (er*100)+'%';
+  document.getElementById('bud-bar').style.width = (br*100)+'%';
+  document.getElementById('eps-val').textContent = obs.epsilon_remaining.toFixed(3);
+  document.getElementById('bud-val').textContent = '$'+obs.total_budget_remaining.toFixed(0);
   document.getElementById('eps-arc').style.strokeDashoffset = 148*(1-er);
-  document.getElementById('eps-num').textContent  = obs.epsilon_remaining.toFixed(2);
+  document.getElementById('eps-num').textContent = obs.epsilon_remaining.toFixed(2);
   const descs = {standard:'Signal clean — noise minimal',high_noise:'Noise elevated — trust CI intervals',minimal_data:'Data minimisation — 1 feature max',exhausted:'Epsilon depleted — signal near random'};
-  document.getElementById('regime-desc').textContent = descs[obs.privacy_regime] || '';
+  document.getElementById('regime-desc').textContent = descs[obs.privacy_regime]||'';
   document.getElementById('rb-step').textContent  = obs.step;
   document.getElementById('rb-total').textContent = S.totalSteps;
-  const lvl  = {standard:1, high_noise:3, minimal_data:2, exhausted:5};
+  const lvl  = {standard:1,high_noise:3,minimal_data:2,exhausted:5};
   const cols = ['#4ade80','#38bdf8','#fbbf24','#fb923c','#f87171'];
   document.querySelectorAll('.ndot').forEach((d,i) => {
-    const a = lvl[obs.privacy_regime] || 1;
-    d.style.background  = i < a ? cols[Math.min(i,cols.length-1)] : 'var(--border)';
-    d.style.boxShadow   = i < a ? `0 0 6px ${cols[Math.min(i,cols.length-1)]}` : 'none';
+    const a = lvl[obs.privacy_regime]||1;
+    d.style.background = i<a ? cols[Math.min(i,cols.length-1)]:'var(--border)';
+    d.style.boxShadow  = i<a ? `0 0 6px ${cols[Math.min(i,cols.length-1)]}`:'none';
   });
-  (obs.campaigns || []).forEach(cs => {
+  (obs.campaigns||[]).forEach(cs => {
     const c = cs.campaign_id;
     const rn = document.getElementById('rn-'+c);
     rn.textContent = cs.estimated_roas.toFixed(3);
-    rn.className   = 'roas-num ' + (cs.estimated_roas >= S.targetRoas ? 'hi' : cs.estimated_roas >= .5 ? 'md' : 'lo');
+    rn.className   = 'roas-num '+(cs.estimated_roas>=S.targetRoas?'hi':cs.estimated_roas>=.5?'md':'lo');
     document.getElementById('nc-'+c).textContent = cs.noisy_conversions.toFixed(2);
-    document.getElementById('ct-'+c).textContent = (cs.ctr*100).toFixed(2) + '%';
+    document.getElementById('ct-'+c).textContent = (cs.ctr*100).toFixed(2)+'%';
     document.getElementById('im-'+c).textContent = cs.impressions;
-    document.getElementById('sp-'+c).textContent = '$' + cs.spend.toFixed(0);
-    if (cs.confidence_interval && cs.confidence_interval.length === 2) {
-      const [lo,hi] = cs.confidence_interval;
-      const span = Math.max(hi-lo, .01), cap = 20;
-      const hw = Math.min(span/2/cap*100, 48);
-      document.getElementById('ci-'+c).style.cssText = `left:${50-hw}%;right:${50-hw}%`;
-      document.getElementById('cp-'+c).style.left = '49%';
+    document.getElementById('sp-'+c).textContent = '$'+cs.spend.toFixed(0);
+    if (cs.confidence_interval && cs.confidence_interval.length===2) {
+      const [lo,hi]=cs.confidence_interval, span=Math.max(hi-lo,.01), cap=20;
+      const hw=Math.min(span/2/cap*100,48);
+      document.getElementById('ci-'+c).style.cssText=`left:${50-hw}%;right:${50-hw}%`;
+      document.getElementById('cp-'+c).style.left='49%';
     }
   });
   if (obs.audit_active && obs.flagged_campaign) {
     const card = document.getElementById('card-'+obs.flagged_campaign);
     if (card && !card.classList.contains('suspended')) {
       card.classList.add('suspended');
-      const ov = document.createElement('div'); ov.className = 'susp-ov'; ov.textContent = '⛔ Suspended';
+      const ov=document.createElement('div'); ov.className='susp-ov'; ov.textContent='⛔ Suspended';
       card.appendChild(ov);
-      const k  = obs.flagged_campaign.replace('camp_','');
-      const sl = document.getElementById('sl-'+k);
-      if (sl) { sl.value = 0; sl.disabled = true; slChange(k); }
+      const k=obs.flagged_campaign.replace('camp_','');
+      const sl=document.getElementById('sl-'+k);
+      if(sl){ sl.value=0; sl.disabled=true; slChange(k); }
     }
   }
 }
 
-// ════════════════════════════════════════════
-// AUDIT FLASH
-// ════════════════════════════════════════════
 function fireAudit(camp) {
   const f = document.getElementById('audit-flash');
-  f.className = 'on'; setTimeout(() => f.className = '', 1800);
+  f.className='on'; setTimeout(()=>f.className='',1800);
   document.getElementById('audit-alert').classList.add('on');
-  document.getElementById('aa-camp').textContent = '⛔ ' + camp.toUpperCase().replace(/_/g,' ') + ' SUSPENDED';
-  document.getElementById('t4-ctrl').style.display = 'block';
-  log('⚠ Audit fired — ' + camp + ' suspended', 'er');
-  log('  Set legal_reason_code to comply', 'wn');
+  document.getElementById('aa-camp').textContent='⛔ '+camp.toUpperCase().replace(/_/g,' ')+' SUSPENDED';
+  document.getElementById('t4-ctrl').style.display='block';
+  log('⚠ Audit fired — '+camp+' suspended by regulator', 'er');
+  log('  Select a legal reason code in the left panel, then continue stepping.', 'wn');
 }
 
 // ════════════════════════════════════════════
 // CONTROLS
 // ════════════════════════════════════════════
 function slChange(k) {
-  const v = parseFloat(document.getElementById('sl-'+k).value);
-  document.getElementById('sv-'+k).textContent = '$' + v;
-  const tot = ['feed','reels','stories'].reduce((s,c) => s + parseFloat(document.getElementById('sl-'+c).value), 0);
-  const totEl = document.getElementById('alloc-tot');
-  totEl.textContent = '$' + tot;
-  const cap = parseFloat(document.getElementById('alloc-cap').textContent.replace('$',''));
-  totEl.style.color = tot > cap ? 'var(--red)' : 'var(--cyan)';
+  const v=parseFloat(document.getElementById('sl-'+k).value);
+  document.getElementById('sv-'+k).textContent='$'+v;
+  const tot=['feed','reels','stories'].reduce((s,c)=>s+parseFloat(document.getElementById('sl-'+c).value),0);
+  const totEl=document.getElementById('alloc-tot');
+  totEl.textContent='$'+tot;
+  const cap=parseFloat(document.getElementById('alloc-cap').textContent.replace('$',''));
+  totEl.style.color=tot>cap?'var(--red)':'var(--cyan)';
 }
 function setAttr(v) {
-  S.attr = v;
-  document.getElementById('ao-lc').classList.toggle('on',   v === 'last_click');
-  document.getElementById('ao-prob').classList.toggle('on', v === 'probabilistic');
+  S.attr=v;
+  document.getElementById('ao-lc').classList.toggle('on',   v==='last_click');
+  document.getElementById('ao-prob').classList.toggle('on', v==='probabilistic');
 }
 function spdChange() {
-  const v = document.getElementById('spd-sl').value;
-  document.getElementById('spd-val').textContent = (v/1000).toFixed(1) + 's';
+  const v=document.getElementById('spd-sl').value;
+  document.getElementById('spd-val').textContent=(v/1000).toFixed(1)+'s';
 }
 
 // ════════════════════════════════════════════
 // LOG
 // ════════════════════════════════════════════
 function log(msg, cls='') {
-  const el = document.getElementById('step-log');
-  const d  = document.createElement('div');
-  d.className = 'll ' + (cls||''); d.textContent = '> ' + msg;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
-  while (el.children.length > 300) el.removeChild(el.firstChild);
+  const el=document.getElementById('step-log');
+  const d=document.createElement('div');
+  d.className='ll '+(cls||''); d.textContent='> '+msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+  while(el.children.length>300) el.removeChild(el.firstChild);
 }
 
 // ════════════════════════════════════════════
-// SIMULATE MODAL
+// SIMULATE (full page)
 // ════════════════════════════════════════════
-function openSim()  { document.getElementById('sim-modal').classList.add('on'); }
-function closeSim() { document.getElementById('sim-modal').classList.remove('on'); }
-function simModalClick(e) { if (e.target === document.getElementById('sim-modal')) closeSim(); }
-
 async function runSim() {
-  const btn = document.getElementById('sim-run-btn');
-  btn.disabled = true; btn.textContent = '… Running';
-  document.getElementById('sim-results').classList.remove('on');
+  const btn=document.getElementById('sim-run-btn');
+  btn.disabled=true; btn.textContent='… Running';
+  document.getElementById('sim-results').style.display='none';
+  document.getElementById('sim-empty').style.display='block';
   try {
     const body = {
       task_id:  parseInt(document.getElementById('sim-task').value),
       strategy: document.getElementById('sim-strategy').value,
-      seed:     parseInt(document.getElementById('sim-seed').value) || 42,
+      seed:     parseInt(document.getElementById('sim-seed').value)||42,
     };
-    const r = await fetch(`${API}/simulate`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || JSON.stringify(e)); }
-    const res = await r.json();
-    const sb = document.getElementById('sim-score-big');
-    sb.textContent = res.score.toFixed(4);
-    sb.style.color = res.score >= .7 ? 'var(--green)' : res.score >= .4 ? 'var(--yellow)' : 'var(--red)';
-    document.getElementById('sim-strategy-lbl').textContent = `${res.strategy.toUpperCase()} · Task ${res.task_id}`;
-    const expl = res.grader.explanation
-      ? `<div style="font-size:11px;color:var(--yellow);line-height:1.5;margin-top:8px;padding:7px 10px;border:1px solid rgba(251,191,36,.2);border-radius:var(--r-sm);background:rgba(251,191,36,.05)">${res.grader.explanation}</div>` : '';
-    document.getElementById('sim-breakdown').innerHTML =
-      Object.entries(res.grader.breakdown).map(([k,v]) => `
+    const r=await fetch(`${API}/simulate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const e=await r.json(); throw new Error(e.detail||JSON.stringify(e)); }
+    const res=await r.json();
+
+    // score
+    const sb=document.getElementById('sim-score-big');
+    sb.textContent=res.score.toFixed(4);
+    sb.style.color=res.score>=.7?'var(--green)':res.score>=.4?'var(--yellow)':'var(--red)';
+    document.getElementById('sim-strategy-lbl').textContent=`${res.strategy.toUpperCase()} · Task ${res.task_id}`;
+
+    // breakdown
+    const exp=res.grader.explanation;
+    document.getElementById('sim-breakdown').innerHTML=
+      Object.entries(res.grader.breakdown).map(([k,v])=>`
         <div class="sim-bd-row">
           <span class="sim-bd-k">${k.replace(/_/g,' ')}</span>
           <div class="sim-bd-bw"><div class="sim-bd-b" style="width:${(v*100).toFixed(0)}%"></div></div>
           <span class="sim-bd-v">${v.toFixed(3)}</span>
-        </div>`).join('') + expl;
-    const targetRoas = S.configs[body.task_id]?.target_roas || 1.5;
-    document.getElementById('sim-trace-body').innerHTML = res.trace.map(t => {
-      const roasCls = t.step_roas >= targetRoas ? 'hi' : t.step_roas >= 0.5 ? 'md' : 'lo';
-      const penTxt  = t.correlation_penalty_active ? '⚡ CONC' : '';
-      const warnTxt = t.warning ? t.warning.split('|')[0].trim().substring(0,55) : '—';
-      return `<div class="sim-trace-row">
-        <span class="str-step">${String(t.step).padStart(2,'0')}</span>
-        <span class="str-roas ${roasCls}">${t.step_roas.toFixed(3)}</span>
-        <span class="str-oracle">${t.oracle_roas.toFixed(3)}</span>
-        <span class="str-roas ${t.reward>=0?'hi':'lo'}">${t.reward.toFixed(3)}</span>
-        <span class="str-eps">${t.epsilon_remaining.toFixed(3)}</span>
-        <span class="str-pen">${penTxt}</span>
-        <span class="str-warn">${warnTxt}</span>
-      </div>`;
+        </div>`).join('');
+
+    // explanation
+    const expEl=document.getElementById('sim-explanation');
+    if (exp){ expEl.textContent=exp; expEl.style.display='block'; } else { expEl.style.display='none'; }
+
+    // trace
+    const targetRoas=S.configs[body.task_id]?.target_roas||1.5;
+    document.getElementById('sim-trace-body').innerHTML=res.trace.map(t=>{
+      const rc=t.step_roas>=targetRoas?'td-hi':t.step_roas>=.5?'td-md':'td-lo';
+      const rrc=t.reward>=0?'td-hi':'td-lo';
+      const pen=t.correlation_penalty_active?'<span class="td-pen">⚡ CONC</span>':'—';
+      const warn=t.warning?`<span class="td-warn">${t.warning.split('|')[0].trim().substring(0,60)}</span>`:'—';
+      return `<tr>
+        <td class="td-step">${String(t.step).padStart(2,'0')}</td>
+        <td class="${rc}">${t.step_roas.toFixed(3)}</td>
+        <td class="td-md">${t.oracle_roas.toFixed(3)}</td>
+        <td class="${rrc}">${t.reward.toFixed(3)}</td>
+        <td>${t.epsilon_remaining.toFixed(3)}</td>
+        <td style="font-size:10px;color:var(--dim)">${t.privacy_regime}</td>
+        <td>${pen}</td>
+        <td>${warn}</td>
+      </tr>`;
     }).join('');
-    document.getElementById('sim-results').classList.add('on');
-  } catch(e) { alert('Simulate error: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = '▶ Run'; }
+
+    document.getElementById('sim-empty').style.display='none';
+    document.getElementById('sim-results').style.display='block';
+  } catch(e) {
+    document.getElementById('sim-empty').innerHTML=`<div class="big-icon">⚠️</div><strong>Error</strong><br>${e.message}`;
+  } finally {
+    btn.disabled=false; btn.textContent='▶ Run Simulation';
+  }
 }
 
 // ════════════════════════════════════════════
@@ -1308,8 +1788,7 @@ async function runSim() {
 // ════════════════════════════════════════════
 buildFeats();
 loadTasks();
-slChange('feed'); slChange('reels'); slChange('stories');
-initChart();
+// chart init deferred until playground is first visited
 </script>
 </body>
 </html>

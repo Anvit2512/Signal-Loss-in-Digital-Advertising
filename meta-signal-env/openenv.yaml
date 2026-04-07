@@ -6,7 +6,7 @@ description: |
   campaigns but can only observe noisy, aggregated conversion data -- exactly
   how Meta's real ad system works after signal loss.
   Models differential privacy budget depletion, mid-episode regime changes,
-  and regulatory data-minimisation constraints.
+  correlation penalties, market-shift events, and regulatory audit mechanics.
 
 author: Anvit2512
 tags:
@@ -26,6 +26,7 @@ endpoints:
   step:     POST /step
   state:    GET  /state
   grader:   POST /grader
+  simulate: POST /simulate
   baseline: POST /baseline
 
 tasks:
@@ -36,6 +37,8 @@ tasks:
     target_roas: 1.5
     max_features: 5
     initial_epsilon: 3.0
+    initial_budget: 1000.0
+    note: "Correlation penalty fires when >70% spend concentrated on one campaign"
 
   - id: 2
     name: "Noisy Signal Recovery"
@@ -44,7 +47,8 @@ tasks:
     target_roas: 1.5
     max_features: 3
     initial_epsilon: 3.0
-    note: "Privacy regime change triggers at step 3"
+    initial_budget: 1000.0
+    note: "Market shift at step 9 -- camp_reels CVR doubles (viral trend)"
 
   - id: 3
     name: "Privacy Frontier"
@@ -53,7 +57,18 @@ tasks:
     target_roas: 1.0
     max_features: 1
     initial_epsilon: 2.0
-    note: "Regulatory data minimisation in force from start"
+    initial_budget: 1000.0
+    note: "Regulatory data minimisation in force from start; 1 feature max"
+
+  - id: 4
+    name: "Adversarial Regulator"
+    difficulty: hard
+    max_steps: 20
+    target_roas: 1.0
+    max_features: 3
+    initial_epsilon: 3.0
+    initial_budget: 1500.0
+    note: "Regulatory audit fires at step 5; one campaign suspended mid-episode"
 
 scoring:
   min: 0.0
@@ -73,12 +88,22 @@ action_schema:
     attribution:
       type: string
       enum: [last_click, probabilistic]
+      default: last_click
       description: "last_click is free; probabilistic costs 0.20 epsilon extra"
     feature_mask:
       type: array
       items:
         type: string
-      description: "Feature names from I1-I13 or C1-C26. Each costs 0.05 epsilon."
+      description: "Feature names from I1-I13 or C1-C26. Each costs 0.05 epsilon per step."
+    halted_campaigns:
+      type: array
+      items:
+        type: string
+      description: "Task 4: campaigns to halt per regulatory order"
+    legal_reason_code:
+      type: string
+      nullable: true
+      description: "Task 4: GDPR_ART17 | GDPR_ART21 | CCPA_OPT_OUT | COPPA"
 
 observation_schema:
   type: object
@@ -87,7 +112,20 @@ observation_schema:
       type: integer
     campaigns:
       type: array
-      description: "Per-campaign noisy stats"
+      description: "Per-campaign noisy stats (list, indexed by campaign_id)"
+      items:
+        type: object
+        properties:
+          campaign_id:       { type: string }
+          placement:         { type: string }
+          impressions:       { type: integer }
+          spend:             { type: number }
+          noisy_conversions: { type: number }
+          estimated_roas:    { type: number }
+          ctr:               { type: number }
+          confidence_interval:
+            type: array
+            items: { type: number }
     total_budget_remaining:
       type: number
     epsilon_remaining:
@@ -97,8 +135,14 @@ observation_schema:
       enum: [standard, high_noise, minimal_data, exhausted]
     available_features:
       type: array
+      items: { type: string }
     regulatory_violation:
       type: boolean
+    audit_active:
+      type: boolean
+    flagged_campaign:
+      type: string
+      nullable: true
     warning:
       type: string
       nullable: true

@@ -242,7 +242,7 @@ class TaskDefinition(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    task_id: int   = Field(ge=1, le=4)
+    task_id: int   = Field(default=1, ge=1, le=4)
     seed:    Optional[int] = Field(
         default=None,
         description="Fix the random start index for reproducible episodes"

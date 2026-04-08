@@ -23,7 +23,7 @@ import threading
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -74,7 +74,139 @@ if static_dir.exists():
 
 @app.get("/health", tags=["system"])
 def health() -> dict:
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "healthy", "version": "1.0.0"}
+
+
+# ---------------------------------------------------------------------------
+# OpenEnv compliance endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/metadata", tags=["system"])
+def metadata() -> dict:
+    return {
+        "name": "meta-signal",
+        "display_name": "Meta-Signal: Privacy-Constrained Ad Optimisation",
+        "version": "1.0.0",
+        "description": (
+            "An RL environment where an AI agent allocates advertising budget across "
+            "three campaigns but can only observe noisy, aggregated conversion data -- "
+            "exactly how Meta's real ad system works after signal loss. "
+            "Models differential privacy budget depletion, mid-episode regime changes, "
+            "correlation penalties, market-shift events, and regulatory audit mechanics."
+        ),
+        "author": "Anvit2512",
+        "tags": ["advertising", "differential-privacy", "reinforcement-learning", "budget-optimisation", "signal-loss"],
+    }
+
+
+@app.get("/schema", tags=["system"])
+def schema() -> dict:
+    return {
+        "action": {
+            "type": "object",
+            "properties": {
+                "allocations": {
+                    "type": "object",
+                    "description": "Dollar amount to spend per campaign. Keys: camp_feed, camp_reels, camp_stories",
+                    "additionalProperties": {"type": "number", "minimum": 0},
+                },
+                "attribution": {
+                    "type": "string",
+                    "enum": ["last_click", "probabilistic"],
+                    "default": "last_click",
+                    "description": "last_click is free; probabilistic costs 0.20 epsilon extra",
+                },
+                "feature_mask": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Feature names from I1-I13 or C1-C26. Each costs 0.05 epsilon per step.",
+                },
+                "halted_campaigns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Task 4: campaigns to halt per regulatory order",
+                },
+                "legal_reason_code": {
+                    "type": "string",
+                    "nullable": True,
+                    "description": "Task 4: GDPR_ART17 | GDPR_ART21 | CCPA_OPT_OUT | COPPA",
+                },
+            },
+        },
+        "observation": {
+            "type": "object",
+            "properties": {
+                "step": {"type": "integer"},
+                "campaigns": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "campaign_id": {"type": "string"},
+                            "placement": {"type": "string"},
+                            "impressions": {"type": "integer"},
+                            "spend": {"type": "number"},
+                            "noisy_conversions": {"type": "number"},
+                            "estimated_roas": {"type": "number"},
+                            "ctr": {"type": "number"},
+                            "confidence_interval": {"type": "array", "items": {"type": "number"}},
+                        },
+                    },
+                },
+                "total_budget_remaining": {"type": "number"},
+                "epsilon_remaining": {"type": "number"},
+                "privacy_regime": {"type": "string", "enum": ["standard", "high_noise", "minimal_data", "exhausted"]},
+                "available_features": {"type": "array", "items": {"type": "string"}},
+                "regulatory_violation": {"type": "boolean"},
+                "audit_active": {"type": "boolean"},
+                "flagged_campaign": {"type": "string", "nullable": True},
+                "warning": {"type": "string", "nullable": True},
+            },
+        },
+        "state": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "integer"},
+                "step": {"type": "integer"},
+                "is_done": {"type": "boolean"},
+                "total_spend": {"type": "number"},
+                "total_budget": {"type": "number"},
+                "cumulative_roas": {"type": "number"},
+            },
+        },
+    }
+
+
+@app.post("/mcp", tags=["system"])
+async def mcp(request: Request) -> dict:
+    """Model Context Protocol (MCP) JSON-RPC 2.0 endpoint."""
+    body = await request.json()
+    method = body.get("method", "")
+    req_id = body.get("id", 1)
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "meta-signal", "version": "1.0.0"},
+            },
+        }
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "tools": [
+                    {"name": "reset", "description": "Start a new episode", "inputSchema": {"type": "object", "properties": {"task_id": {"type": "integer"}}}},
+                    {"name": "step", "description": "Advance the episode by one step", "inputSchema": {"type": "object"}},
+                ]
+            },
+        }
+    # Default: return empty success
+    return {"jsonrpc": "2.0", "id": req_id, "result": {}}
 
 
 # ---------------------------------------------------------------------------

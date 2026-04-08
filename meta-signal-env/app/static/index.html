@@ -289,27 +289,23 @@ body {
 }
 
 /* tooltip system */
-.tip-wrap { position:relative; display:inline-flex; align-items:center; margin-left:auto; }
+.tip-wrap { position:static; display:inline-flex; align-items:center; margin-left:auto; }
 .tip-icon {
   width:15px; height:15px; border-radius:50%;
   background:var(--surface3); color:var(--muted);
   font-size:9px; font-weight:700; cursor:help;
   display:inline-flex; align-items:center; justify-content:center;
   border:1px solid var(--border); flex-shrink:0;
+  position:relative;
 }
 .tip-box {
-  display:none; position:absolute; bottom:calc(100% + 8px);
-  left:50%; transform:translateX(-50%);
+  display:none; position:fixed;
   min-width:220px; max-width:280px;
   background:#1e293b; border:1px solid var(--border2);
   border-radius:var(--r); padding:10px 12px;
   font-size:11px; color:var(--dim); line-height:1.6;
-  z-index:200; pointer-events:none;
-  box-shadow:0 8px 24px rgba(0,0,0,.4);
-}
-.tip-box::after {
-  content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
-  border:6px solid transparent; border-top-color:#1e293b;
+  z-index:9999; pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
 }
 .tip-wrap:hover .tip-box { display:block; }
 
@@ -671,15 +667,16 @@ input[type=range].st { accent-color:var(--stories); }
 .td-warn { color:var(--yellow); font-size:10px; }
 
 /* strategy cards */
-.strategy-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+.strategy-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
 .strat-card {
-  padding:12px 14px; border-radius:var(--r);
+  padding:10px 12px; border-radius:var(--r);
   border:1px solid var(--border); background:var(--surface2);
   cursor:pointer; transition:all .15s;
+  min-width:0; word-break:break-word;
 }
 .strat-card.sel { border-color:var(--cyan); background:var(--cyan-glow); }
-.strat-card h4 { font-size:12px; font-weight:700; margin-bottom:4px; }
-.strat-card p  { font-size:11px; color:var(--dim); line-height:1.5; }
+.strat-card h4 { font-size:11px; font-weight:700; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.strat-card p  { font-size:10px; color:var(--dim); line-height:1.4; }
 .strat-card.sel h4 { color:var(--cyan); }
 
 /* task description cards on simulate page */
@@ -1782,6 +1779,33 @@ async function runSim() {
     btn.disabled=false; btn.textContent='▶ Run Simulation';
   }
 }
+
+// ════════════════════════════════════════════
+// TOOLTIP POSITIONING
+// ════════════════════════════════════════════
+document.addEventListener('mouseover', e => {
+  const icon = e.target.closest('.tip-icon');
+  if (!icon) return;
+  const box = icon.parentElement.querySelector('.tip-box');
+  if (!box) return;
+  const r    = icon.getBoundingClientRect();
+  const bw   = 260; // approx tooltip width
+  const pad  = 10;
+  // horizontal: prefer centering on icon, clamp to viewport
+  let left = r.left + r.width/2 - bw/2;
+  left = Math.max(pad, Math.min(left, window.innerWidth - bw - pad));
+  // vertical: above icon by default, flip below if too close to top
+  let top;
+  if (r.top > 120) {
+    top  = r.top - 8;
+    box.style.transform = 'translateY(-100%)';
+  } else {
+    top  = r.bottom + 8;
+    box.style.transform = 'translateY(0)';
+  }
+  box.style.left = left + 'px';
+  box.style.top  = top  + 'px';
+});
 
 // ════════════════════════════════════════════
 // INIT

@@ -246,6 +246,7 @@ Reproducible scores from `python inference.py` with `seed=42`:
 | Task 1 — Budget Optimisation | 0.4252 | llama-3.3-70b-versatile | Groq |
 | Task 2 — Noisy Signal Recovery | 0.5402 | llama-3.3-70b-versatile | Groq |
 | Task 3 — Privacy Frontier | 0.7233 | llama-3.3-70b-versatile | Groq |
+| Task 4 — Adversarial Regulator | — | llama-3.3-70b-versatile | Groq |
 
 These gaps are intentional — a trained RL agent should score significantly higher,
 especially on Task 2 (signal recovery after noise jump) and Task 3 (compliance).
@@ -284,7 +285,10 @@ python inference.py
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/health` | Liveness probe |
+| GET | `/health` | Liveness probe — returns `{"status":"healthy"}` |
+| GET | `/metadata` | Environment name, description, tags (OpenEnv spec) |
+| GET | `/schema` | Action, observation, and state schemas (OpenEnv spec) |
+| POST | `/mcp` | JSON-RPC 2.0 Model Context Protocol endpoint (OpenEnv spec) |
 | GET | `/tasks` | All task definitions |
 | POST | `/reset` | Start new episode `{"task_id": 1, "seed": 42}` |
 | POST | `/step` | Submit action, get observation |
@@ -331,7 +335,7 @@ meta-signal-env/
 │   ├── env.py                     Core environment logic
 │   └── main.py                    FastAPI server
 ├── tests/
-│   └── test_server.py             28 end-to-end tests
+│   └── test_server.py             94 end-to-end tests
 ├── inference.py                   Competition inference script
 ├── baseline.py                    Extended baseline utility
 ├── openenv.yaml                   Competition manifest

@@ -39,7 +39,7 @@ from app.tasks import TASK_CONFIGS
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME",   "meta-llama/Llama-3.3-70B-Instruct")
-HF_TOKEN     = os.environ.get("HF_TOKEN") or os.environ.get("OPENAI_API_KEY", "")
+HF_TOKEN     = os.environ.get("HF_TOKEN")
 
 # ---------------------------------------------------------------------------
 # Mandatory stdout log helpers — exact format required by validator
@@ -241,7 +241,7 @@ def _run_task(env: MetaSignalEnv, task_id: int, seed: int, client: OpenAI) -> Gr
 
 def main() -> None:
     if not HF_TOKEN:
-        print("ERROR: No API key. Set HF_TOKEN or OPENAI_API_KEY.", file=sys.stderr)
+        print("ERROR: No API key. Set HF_TOKEN environment variable.", file=sys.stderr)
         sys.exit(1)
 
     print(f"Model    : {MODEL_NAME}",   file=sys.stderr, flush=True)

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -224,13 +224,15 @@ def get_tasks() -> List[TaskDefinition]:
 # ---------------------------------------------------------------------------
 
 @app.post("/reset", response_model=Observation, tags=["environment"])
-def reset(request: ResetRequest) -> Observation:
+def reset(request: Optional[ResetRequest] = None) -> Observation:
     """
     Start a fresh episode.
 
     - task_id: 1 (Budget Opt), 2 (Noisy Recovery), 3 (Privacy Frontier)
     - seed: optional int for fully reproducible episodes
     """
+    if request is None:
+        request = ResetRequest()
     with _lock:
         obs = _env.reset(task_id=request.task_id, seed=request.seed)
     return obs

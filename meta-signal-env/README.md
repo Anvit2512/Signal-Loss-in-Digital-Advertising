@@ -355,6 +355,11 @@ Generates Alpaca-format JSONL with one record per step:
 QLoRA (rank=16) on the expert demonstrations. Loads dataset from HF Hub, pushes
 trained adapter to `Anvit25/meta-signal-q4-agent`.
 
+**Actual training stats (A10G Small, 10,250 records, 3 epochs):**
+- Loss: 0.1083 — model correctly learns CAPI rationing, freeze, and hold strategies
+- Runtime: ~123 min (1,923 steps with sequence packing at max_seq_len=2048)
+- Inference validation: correctly sets `use_capi=true` for Phase 2 without explicit instruction
+
 **Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)
 
 ---

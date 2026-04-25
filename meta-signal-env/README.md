@@ -17,7 +17,8 @@ tags:
 
 **Live demo:** [huggingface.co/spaces/Anvit25/meta-signal](https://huggingface.co/spaces/Anvit25/meta-signal)  
 **Dataset:** [huggingface.co/datasets/Anvit25/meta-signal-expert-demos](https://huggingface.co/datasets/Anvit25/meta-signal-expert-demos)  
-**Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)
+**Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)  
+**Blog post:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)
 
 An OpenEnv-compliant RL environment where an AI agent manages advertising budget across
 three campaigns but can only observe **noisy, aggregated conversion data** — exactly how

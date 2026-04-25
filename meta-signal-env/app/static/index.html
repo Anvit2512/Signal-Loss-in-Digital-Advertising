@@ -186,12 +186,18 @@ body {
 .task-card.t2::before { background:var(--purple); }
 .task-card.t3::before { background:var(--green); }
 .task-card.t4::before { background:var(--red); }
+.task-card.t5::before { background:var(--yellow); }
+.task-card.t6::before { background:var(--orange); }
+.task-card.t7::before { background:linear-gradient(90deg,var(--cyan),var(--purple)); }
 .task-card:hover { transform:translateY(-2px); border-color:var(--border2); box-shadow:0 8px 24px rgba(0,0,0,.3); }
 .tc-num { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
 .task-card.t1 .tc-num { color:var(--cyan); }
 .task-card.t2 .tc-num { color:var(--purple); }
 .task-card.t3 .tc-num { color:var(--green); }
 .task-card.t4 .tc-num { color:var(--red); }
+.task-card.t5 .tc-num { color:var(--yellow); }
+.task-card.t6 .tc-num { color:var(--orange); }
+.task-card.t7 .tc-num { background:-webkit-linear-gradient(var(--cyan),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 .tc-name { font-size:14px; font-weight:700; margin-bottom:8px; }
 .tc-desc { font-size:12px; color:var(--dim); line-height:1.6; margin-bottom:14px; }
 .tc-tag {
@@ -202,6 +208,9 @@ body {
 .task-card.t2 .tc-tag { background:rgba(167,139,250,.12); color:var(--purple); }
 .task-card.t3 .tc-tag { background:var(--green-glow); color:var(--green); }
 .task-card.t4 .tc-tag { background:var(--red-glow); color:var(--red); }
+.task-card.t5 .tc-tag { background:rgba(251,191,36,.1); color:var(--yellow); }
+.task-card.t6 .tc-tag { background:rgba(251,146,60,.1); color:var(--orange); }
+.task-card.t7 .tc-tag { background:rgba(56,189,248,.1); color:var(--cyan); }
 .tc-arrow { position:absolute; bottom:18px; right:18px; color:var(--muted); font-size:18px; }
 
 /* Quick Start */
@@ -261,6 +270,74 @@ body {
 .ttab.t4  { border-color:rgba(248,113,113,.4); color:var(--red); }
 .ttab.t4:hover { background:var(--red-glow); }
 .ttab.t4.on { background:var(--red-glow); border-color:var(--red); }
+.ttab.t5  { border-color:rgba(251,191,36,.4); color:var(--yellow); }
+.ttab.t5:hover { background:rgba(251,191,36,.1); }
+.ttab.t5.on { background:rgba(251,191,36,.12); border-color:var(--yellow); }
+.ttab.t6  { border-color:rgba(251,146,60,.4); color:var(--orange); }
+.ttab.t6:hover { background:rgba(251,146,60,.1); }
+.ttab.t6.on { background:rgba(251,146,60,.12); border-color:var(--orange); }
+.ttab.t7  { border-color:rgba(167,139,250,.5); color:var(--purple); }
+.ttab.t7:hover { background:rgba(167,139,250,.1); }
+.ttab.t7.on { background:rgba(56,189,248,.1); border-color:var(--cyan); color:var(--cyan); }
+
+/* Q4 phase bar */
+.q4-phase-bar {
+  display:none; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:7px 16px; background:rgba(56,189,248,.05);
+  border-bottom:1px solid var(--border); font-size:11px;
+}
+.q4-phase-bar.on { display:flex; }
+.phase-pill {
+  padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;
+}
+.ph-nominal    { background:rgba(74,222,128,.12);  color:var(--green);  border:1px solid rgba(74,222,128,.3); }
+.ph-signal_loss{ background:rgba(248,113,113,.12); color:var(--red);    border:1px solid rgba(248,113,113,.3); }
+.ph-andromeda  { background:rgba(251,146,60,.12);  color:var(--orange); border:1px solid rgba(251,146,60,.3); }
+.ph-peak_load  { background:rgba(167,139,250,.12); color:var(--purple); border:1px solid rgba(167,139,250,.3); }
+.ls-reset { color:var(--red); font-weight:700; animation:blink .8s step-start infinite; }
+@keyframes blink { 50%{ opacity:.3 } }
+.trend-up   { color:var(--green); }
+.trend-down { color:var(--red); }
+
+/* CAPI & pacing controls */
+.capi-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 10px; border-radius:var(--r-sm);
+  background:var(--surface2); border:1px solid var(--border);
+  font-size:11px; cursor:pointer; transition:all .15s;
+}
+.capi-row.on { border-color:rgba(56,189,248,.5); background:var(--cyan-glow); }
+.capi-row.on .capi-badge { color:var(--cyan); }
+.capi-badge { font-size:10px; color:var(--muted); }
+.pacing-warn { color:var(--red); font-size:10px; display:none; margin-top:2px; }
+.pacing-warn.on { display:block; }
+
+/* Hint panel */
+.hint-panel {
+  border-radius:var(--r-sm); overflow:hidden; margin-top:4px;
+  border:1px solid rgba(56,189,248,.3);
+}
+.hint-hdr {
+  padding:7px 10px; background:var(--cyan-glow);
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--cyan); display:flex; justify-content:space-between; align-items:center;
+}
+.hint-body {
+  padding:10px; background:var(--surface2); font-size:11px;
+  color:var(--dim); line-height:1.6; display:none;
+}
+.hint-body.on { display:block; }
+.hint-phase-title { color:var(--text); font-weight:700; margin-bottom:6px; font-size:12px; }
+.hint-section { margin-bottom:8px; }
+.hint-section strong { color:var(--cyan); display:block; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+.hint-warn { color:var(--orange); }
+.hint-capi { color:var(--purple); }
+.hint-stats {
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; padding-top:8px;
+  border-top:1px solid var(--border);
+}
+.hint-stat { font-size:10px; color:var(--muted); }
+.hint-stat span { color:var(--text); font-weight:600; }
 .pg-taskbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .hdr-chip {
   padding:4px 10px; border-radius:20px;
@@ -759,8 +836,8 @@ input[type=range].st { accent-color:var(--stories); }
     </div>
   </div>
 
-  <!-- 4 Tasks -->
-  <div class="section-hdr"><h2>4 Challenges to Solve</h2><div class="sh-line"></div></div>
+  <!-- 7 Tasks -->
+  <div class="section-hdr"><h2>7 Challenges to Solve</h2><div class="sh-line"></div></div>
   <div class="task-grid" style="margin-bottom:40px;">
     <div class="task-card t1" onclick="launchPlayground(1)">
       <div class="tc-num">Task 1</div>
@@ -787,7 +864,28 @@ input[type=range].st { accent-color:var(--stories); }
       <div class="tc-num">Task 4</div>
       <div class="tc-name">Adversarial Regulator</div>
       <div class="tc-desc">At step 5, a regulator suspends one campaign. You must set a legal reason code and reallocate budget or face penalties.</div>
-      <span class="tc-tag" style="background:var(--red-glow);color:var(--red)">Regulatory Risk</span>
+      <span class="tc-tag">Regulatory Risk</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t5" onclick="launchPlayground(5)">
+      <div class="tc-num">Task 5 — Q4 Gauntlet</div>
+      <div class="tc-name">Signal Recovery</div>
+      <div class="tc-desc">Phase 2 ATT blackout from day 1. iOS noise is 3× — your epsilon budget cannot fix it. Use CAPI calls (2.0ε each) to get clean data. Ration carefully.</div>
+      <span class="tc-tag">ATT Blackout</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t6" onclick="launchPlayground(6)">
+      <div class="tc-num">Task 6 — Q4 Gauntlet</div>
+      <div class="tc-name">Andromeda Stability</div>
+      <div class="tc-desc">Any allocation change &gt;20% of budget triggers a 7-day CVR suppression to 30%. Freeze your allocations. Patience is the strategy. Learning status tells you when you've been hit.</div>
+      <span class="tc-tag">Stability Challenge</span>
+      <div class="tc-arrow">→</div>
+    </div>
+    <div class="task-card t7" onclick="launchPlayground(7)">
+      <div class="tc-num">Task 7 — Q4 Champion</div>
+      <div class="tc-name">Full 100-Day Gauntlet</div>
+      <div class="tc-desc">All four phases in sequence — ATT blackout, Andromeda glitch, Black Friday pacing risk. Budget $10K, epsilon 20. Survive all 100 days to win.</div>
+      <span class="tc-tag">Ultimate Challenge</span>
       <div class="tc-arrow">→</div>
     </div>
   </div>
@@ -875,15 +973,28 @@ input[type=range].st { accent-color:var(--stories); }
     <button class="ttab"     onclick="selTask(2)">Task 2 — Noise</button>
     <button class="ttab"     onclick="selTask(3)">Task 3 — Privacy</button>
     <button class="ttab t4"  onclick="selTask(4)">Task 4 — Audit</button>
+    <button class="ttab t5"  onclick="selTask(5)">Task 5 — ATT</button>
+    <button class="ttab t6"  onclick="selTask(6)">Task 6 — Andromeda</button>
+    <button class="ttab t7"  onclick="selTask(7)">Task 7 — Champion</button>
     <div class="tip-wrap" style="margin-left:6px;">
       <span class="tip-icon">?</span>
-      <div class="tip-box">Each task is a different challenge.<br><strong>Task 1</strong> — maximize ROAS with $1000 budget.<br><strong>Task 2</strong> — recover signal from heavy noise.<br><strong>Task 3</strong> — balance privacy vs performance.<br><strong>Task 4</strong> — respond to a regulator audit.</div>
+      <div class="tip-box">Each task is a different challenge.<br><strong>Task 1</strong> — maximize ROAS with $1000 budget.<br><strong>Task 2</strong> — recover signal from heavy noise.<br><strong>Task 3</strong> — balance privacy vs performance.<br><strong>Task 4</strong> — respond to a regulator audit.<br><strong>Task 5</strong> — ATT blackout, use CAPI sparingly.<br><strong>Task 6</strong> — Andromeda glitch, freeze allocations.<br><strong>Task 7</strong> — Full 100-day Q4 Gauntlet.</div>
     </div>
     <div class="pg-taskbar-right">
       <div class="hdr-chip">Step <strong id="h-step">—</strong></div>
       <div class="regime-pill rp-standard" id="h-regime">Standard</div>
       <div class="hdr-chip">ε <strong id="h-eps" style="color:var(--purple)">—</strong></div>
     </div>
+  </div>
+
+  <!-- Q4 Gauntlet phase bar (Tasks 5/6/7 only) -->
+  <div class="q4-phase-bar" id="q4-bar">
+    <span>Day <strong id="q4-day">—</strong>/100</span>
+    <span class="phase-pill ph-nominal" id="q4-phase-pill">Phase 1 — Nominal</span>
+    <span id="q4-market" class="trend-up">&#9650; Market Rising</span>
+    <span id="q4-learn" style="font-size:11px;color:var(--muted)">Learning: Optimized</span>
+    <span id="q4-capi-used" style="font-size:11px;color:var(--muted)">CAPI: 0 calls</span>
+    <span id="q4-overspend" style="font-size:11px;color:var(--muted)">Overspend: 0</span>
   </div>
 
   <!-- 3-col layout -->
@@ -991,6 +1102,26 @@ input[type=range].st { accent-color:var(--stories); }
           <option value="CCPA_OPT_OUT">CCPA — Opt-Out of Sale</option>
           <option value="COPPA">COPPA — Minor User Protection</option>
         </select>
+      </div>
+
+      <!-- Q4 Gauntlet controls (Tasks 5/6/7 only) -->
+      <div id="q4-ctrl" style="display:none">
+        <div class="sec-title" style="color:var(--cyan)">
+          Q4 Gauntlet Controls
+          <div class="tip-wrap">
+            <span class="tip-icon">?</span>
+            <div class="tip-box"><strong>CAPI</strong> — Conversion API. Costs 2.0ε but returns true (noise-free) conversions. Use in Phase 2 (ATT blackout) only.<br><br><strong>Pacing Speed</strong> — 1.0 = standard. Above 1.5 in Phase 4 = 30% chance of catastrophic budget dump per step. Stay at 1.0.</div>
+          </div>
+        </div>
+        <div class="capi-row" id="capi-row" onclick="togCapi()">
+          <span>Use CAPI <span class="capi-badge">-2.0ε</span></span>
+          <span id="capi-status" style="font-size:10px;color:var(--muted)">OFF</span>
+        </div>
+        <div class="cg">
+          <div class="clabel">Pacing Speed <span id="pacing-val" style="color:var(--cyan);font-weight:700;margin-left:auto">1.0×</span></div>
+          <input type="range" id="pacing-sl" min="0.5" max="2.0" step="0.1" value="1.0" oninput="pacingChange()" style="accent-color:var(--cyan)">
+          <div class="pacing-warn" id="pacing-warn">⚡ &gt;1.5× — 30% overspend risk in Phase 4!</div>
+        </div>
       </div>
 
       <!-- Actions -->
@@ -1169,6 +1300,31 @@ input[type=range].st { accent-color:var(--stories); }
       <div class="metric-row"><div class="mk">Oracle ROAS</div><div class="mv" id="m-oracle">—</div></div>
       <div class="metric-row"><div class="mk">Violations</div><div class="mv" id="m-viol" style="color:var(--red)">0</div></div>
 
+      <!-- Hint panel (Q4 only) -->
+      <div id="hint-section" style="display:none">
+        <div class="sec-title" style="color:var(--cyan)">Phase Hint</div>
+        <button class="btn prime full-w" onclick="doHint()" id="hint-btn">&#128161; Get Hint</button>
+        <div class="hint-panel" id="hint-panel" style="display:none">
+          <div class="hint-hdr">
+            <span id="hint-phase-label">Phase —</span>
+            <span onclick="document.getElementById('hint-body').classList.toggle('on')" style="cursor:pointer;font-size:13px">&#9660;</span>
+          </div>
+          <div class="hint-body on" id="hint-body">
+            <div class="hint-phase-title" id="hint-title">—</div>
+            <div class="hint-section"><strong>Situation</strong><span id="hint-situation">—</span></div>
+            <div class="hint-section"><strong>Strategy</strong><span id="hint-advice">—</span></div>
+            <div class="hint-section"><strong class="hint-warn">Watch For</strong><span id="hint-watch">—</span></div>
+            <div class="hint-section"><strong class="hint-capi">CAPI Advice</strong><span id="hint-capi">—</span></div>
+            <div class="hint-stats">
+              <div class="hint-stat">Day <span id="hs-day">—</span></div>
+              <div class="hint-stat">&#949; <span id="hs-eps">—</span> (<span id="hs-eps-pct">—</span>%)</div>
+              <div class="hint-stat">Budget <span id="hs-bud">—</span>%</div>
+              <div class="hint-stat">Resets <span id="hs-resets">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Score panel -->
       <div class="score-panel" id="score-panel" style="display:none">
         <div class="score-lbl">Final Score</div>
@@ -1206,6 +1362,9 @@ input[type=range].st { accent-color:var(--stories); }
           <option value="2">Task 2 — Noisy Signal Recovery</option>
           <option value="3">Task 3 — Privacy Frontier</option>
           <option value="4">Task 4 — Adversarial Regulator</option>
+          <option value="5">Task 5 — Signal Recovery (ATT Blackout)</option>
+          <option value="6">Task 6 — Andromeda Stability</option>
+          <option value="7">Task 7 — Q4 Champion (100 days)</option>
         </select>
         <div class="sim-task-desc" id="sim-task-desc">
           <strong>Task 1 — Budget Optimisation</strong>
@@ -1320,6 +1479,8 @@ const S = {
   budRem:0, epRem:0, step:0,
   roas:[], oracle:[],
   flagged:null, audit:false, violations:0, configs:{},
+  // Q4 Gauntlet state
+  isQ4:false, useCapi:false, pacingSpeed:1.0,
 };
 
 // ════════════════════════════════════════════
@@ -1347,6 +1508,9 @@ const TASK_DESCS = {
   2: { name:'Task 2 — Noisy Signal Recovery', text:'Heavy Laplace noise from step 1. At step 9, Reels goes viral — its CVR doubles. Can your strategy detect and capitalize on the shift? Target: 1.2× ROAS.' },
   3: { name:'Task 3 — Privacy Frontier', text:'Every feature request costs 0.05ε, every step costs ε. Balance data richness vs budget depletion. Exhausted epsilon = near-random signal. Target: 1.0× ROAS.' },
   4: { name:'Task 4 — Adversarial Regulator', text:'At step 5, a regulator suspends one campaign (randomly chosen). The agent must halt it and reallocate. Strategies use GDPR_ART17 as the default reason code.' },
+  5: { name:'Task 5 — Signal Recovery (ATT Blackout)', text:'Phase 2 from day 1. iOS ATT has fired — noise is 3x. Use CAPI (costs 2.0ε each) for clean conversions. Hold your allocation steady between calls. Target: 1.0× ROAS.' },
+  6: { name:'Task 6 — Andromeda Stability', text:'75-day episode crossing Phases 1–3. Any allocation change >20% of budget triggers a 7-day CVR suppression. Freeze after Phase 2. Stability is graded separately from ROAS.' },
+  7: { name:'Task 7 — Q4 Champion (100 days)', text:'The full gauntlet: ATT blackout (Phase 2), Andromeda glitch (Phase 3), Black Friday pacing risk (Phase 4). Budget $10K, epsilon 20. Survive all 100 days.' },
 };
 const STRAT_HINTS = {
   equal:        '<strong style="color:var(--cyan)">equal</strong> — splits budget evenly every step, no adaptation. Useful as a baseline to compare against.',
@@ -1481,6 +1645,12 @@ function selTask(id) {
   document.getElementById('alloc-cap').textContent = '$' + c.initial_budget;
   ['feed','reels','stories'].forEach(k => document.getElementById(`sl-${k}`).max = c.initial_budget);
   document.getElementById('t4-ctrl').style.display = id===4 ? 'block':'none';
+  // Q4 Gauntlet controls
+  S.isQ4 = id >= 5;
+  document.getElementById('q4-ctrl').style.display    = S.isQ4 ? 'block':'none';
+  document.getElementById('q4-bar').classList.toggle('on', S.isQ4);
+  document.getElementById('hint-section').style.display = S.isQ4 ? 'block':'none';
+  if (S.isQ4) { S.useCapi=false; S.pacingSpeed=1.0; resetCapi(); resetPacing(); }
   S.feats.clear();
   document.querySelectorAll('.fpill').forEach(p => p.classList.remove('sel','locked'));
   document.getElementById('fc-lbl').textContent = '(0 selected)';
@@ -1516,6 +1686,12 @@ async function doReset() {
       document.getElementById(`sl-${c.replace('camp_','')}`).disabled = false;
     });
     document.getElementById('m-viol').textContent = '0';
+    if (S.isQ4) {
+      document.getElementById('q4-capi-used').textContent  = 'CAPI: 0 calls';
+      document.getElementById('q4-overspend').textContent  = 'Overspend: 0';
+      document.getElementById('q4-day').textContent = '0';
+      document.getElementById('hint-panel').style.display = 'none';
+    }
     log(`Episode started — Task ${S.task} / Seed ${seed||'random'} / Budget $${obs.total_budget_remaining}`, 'nfo');
     log(`Target ROAS: ${S.targetRoas}x — keep the chart line above the orange target.`, 'nfo');
   } catch(e) { log('Reset error: ' + e.message, 'er'); }
@@ -1535,7 +1711,11 @@ async function doStep() {
     feature_mask: Array.from(S.feats),
     halted_campaigns: S.flagged ? [S.flagged] : [],
     legal_reason_code: S.flagged ? (document.getElementById('legal-code').value || null) : null,
+    use_capi: S.isQ4 ? S.useCapi : false,
+    pacing_speed: S.isQ4 ? S.pacingSpeed : 1.0,
   };
+  // Auto-reset CAPI after each step (fire once, then off)
+  if (S.useCapi) { S.useCapi=false; resetCapi(); }
   try {
     const r = await fetch(`${API}/step`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(action) });
     if (!r.ok) { const e = await r.json(); log('Step error: '+(e.detail||JSON.stringify(e)), 'er'); return; }
@@ -1555,10 +1735,21 @@ async function doStep() {
       el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
     });
     const cls = inf.step_roas>=S.targetRoas?'ok':'wn';
-    log(`[${String(obs.step).padStart(2,'0')}] ROAS=${inf.step_roas.toFixed(3)}  Oracle=${inf.oracle_roas.toFixed(3)}  ε=${obs.epsilon_remaining.toFixed(3)}  ${obs.privacy_regime.toUpperCase()}  rwd=${rw.toFixed(3)}`, cls);
-    if (inf.correlation_penalty_active) log('  ⚡ Correlation penalty — one campaign got >70% of spend, others penalised 15%', 'wn');
-    if (obs.regulatory_violation) log('  ⚠ Regulatory violation — set a legal reason code', 'er');
-    if (obs.warning) log('  ℹ ' + obs.warning, 'wn');
+    const q4tag = S.isQ4 ? ` day=${obs.day} phase=${obs.platform_health}` : '';
+    log(`[${String(obs.step).padStart(2,'0')}] ROAS=${inf.step_roas.toFixed(3)}  Oracle=${inf.oracle_roas.toFixed(3)}  ε=${obs.epsilon_remaining.toFixed(3)}  ${obs.privacy_regime.toUpperCase()}${q4tag}  rwd=${rw.toFixed(3)}`, cls);
+    if (inf.correlation_penalty_active) log('  Correlation penalty — one campaign got >70% of spend, others penalised 15%', 'wn');
+    if (obs.regulatory_violation) log('  Regulatory violation — set a legal reason code', 'er');
+    if (obs.warning) log('  ' + obs.warning, 'wn');
+    if (S.isQ4 && obs.learning_status === 'Reset') log('  ANDROMEDA RESET — hold allocations for 7 steps, do not change anything!', 'er');
+    if (action.use_capi) log('  CAPI fired — true conversions received (cost 2.0e)', 'nfo');
+    // Update Q4 counters from state
+    if (S.isQ4) {
+      try {
+        const st = await (await fetch(`${API}/state`)).json();
+        document.getElementById('q4-capi-used').textContent  = `CAPI: ${st.capi_calls_used} calls`;
+        document.getElementById('q4-overspend').textContent  = `Overspend: ${st.overspend_events}`;
+      } catch(_) {}
+    }
     if (res.done) {
       S.done=true; stopAuto();
       document.getElementById('step-btn').disabled=true;
@@ -1658,6 +1849,27 @@ function applyObs(obs) {
       document.getElementById('cp-'+c).style.left='49%';
     }
   });
+  // Q4 Gauntlet phase bar
+  if (S.isQ4 && obs.platform_health) {
+    document.getElementById('q4-day').textContent = obs.day || obs.step;
+    const phMap = {
+      Nominal:           { cls:'ph-nominal',     label:'Phase 1 — Nominal' },
+      Signal_Loss:       { cls:'ph-signal_loss',  label:'Phase 2 — ATT Blackout' },
+      Andromeda_Glitched:{ cls:'ph-andromeda',   label:'Phase 3 — Andromeda Glitch' },
+      Peak_Load:         { cls:'ph-peak_load',   label:'Phase 4 — Black Friday' },
+    };
+    const ph = phMap[obs.platform_health] || { cls:'ph-nominal', label:obs.platform_health };
+    const pill = document.getElementById('q4-phase-pill');
+    pill.className = 'phase-pill ' + ph.cls;
+    pill.textContent = ph.label;
+    const mkt = document.getElementById('q4-market');
+    const rising = obs.market_trend === 'Rising';
+    mkt.className = rising ? 'trend-up' : 'trend-down';
+    mkt.innerHTML = (rising ? '&#9650; Market Rising' : '&#9660; Market Falling');
+    const ls = document.getElementById('q4-learn');
+    ls.innerHTML = 'Learning: <span class="' + (obs.learning_status==='Reset'?'ls-reset':'') + '">' + obs.learning_status + '</span>';
+  }
+
   if (obs.audit_active && obs.flagged_campaign) {
     const card = document.getElementById('card-'+obs.flagged_campaign);
     if (card && !card.classList.contains('suspended')) {
@@ -1693,6 +1905,56 @@ function slChange(k) {
   const cap=parseFloat(document.getElementById('alloc-cap').textContent.replace('$',''));
   totEl.style.color=tot>cap?'var(--red)':'var(--cyan)';
 }
+// ════════════════════════════════════════════
+// Q4 GAUNTLET CONTROLS
+// ════════════════════════════════════════════
+function togCapi() {
+  S.useCapi = !S.useCapi;
+  const row = document.getElementById('capi-row');
+  const lbl = document.getElementById('capi-status');
+  row.classList.toggle('on', S.useCapi);
+  lbl.textContent = S.useCapi ? 'ON — fires next step' : 'OFF';
+  lbl.style.color = S.useCapi ? 'var(--cyan)' : 'var(--muted)';
+}
+function resetCapi() {
+  S.useCapi = false;
+  document.getElementById('capi-row').classList.remove('on');
+  document.getElementById('capi-status').textContent = 'OFF';
+  document.getElementById('capi-status').style.color = 'var(--muted)';
+}
+function pacingChange() {
+  S.pacingSpeed = parseFloat(document.getElementById('pacing-sl').value);
+  document.getElementById('pacing-val').textContent = S.pacingSpeed.toFixed(1) + 'x';
+  document.getElementById('pacing-warn').classList.toggle('on', S.pacingSpeed > 1.5);
+}
+function resetPacing() {
+  document.getElementById('pacing-sl').value = '1.0';
+  document.getElementById('pacing-val').textContent = '1.0x';
+  document.getElementById('pacing-warn').classList.remove('on');
+}
+async function doHint() {
+  if (!S.active) { log('Start an episode first, then request a hint.', 'wn'); return; }
+  try {
+    const r = await fetch(`${API}/hint`, { method:'POST' });
+    if (!r.ok) { log('Hint error: ' + (await r.text()), 'er'); return; }
+    const h = await r.json();
+    document.getElementById('hint-panel').style.display = 'block';
+    document.getElementById('hint-phase-label').textContent = 'Phase ' + h.phase + ' Hint';
+    document.getElementById('hint-title').textContent = h.title || '';
+    document.getElementById('hint-situation').textContent = h.situation || '';
+    document.getElementById('hint-advice').textContent = h.advice || '';
+    document.getElementById('hint-watch').textContent = h.watch_for || '';
+    document.getElementById('hint-capi').textContent = h.capi_advice || '';
+    document.getElementById('hs-day').textContent = h.current_day;
+    document.getElementById('hs-eps').textContent = h.epsilon_remaining?.toFixed(2) ?? '—';
+    document.getElementById('hs-eps-pct').textContent = h.epsilon_pct ?? '—';
+    document.getElementById('hs-bud').textContent = h.budget_pct ?? '—';
+    document.getElementById('hs-resets').textContent = h.learning_resets ?? 0;
+    document.getElementById('hint-body').classList.add('on');
+    log('Hint retrieved for ' + (h.title || 'current phase'), 'nfo');
+  } catch(e) { log('Hint failed: ' + e.message, 'er'); }
+}
+
 function setAttr(v) {
   S.attr=v;
   document.getElementById('ao-lc').classList.toggle('on',   v==='last_click');

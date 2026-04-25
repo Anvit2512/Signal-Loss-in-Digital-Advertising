@@ -42,6 +42,33 @@ class AttributionMethod(str, Enum):
     PROBABILISTIC = "probabilistic" # Epsilon cost: +0.20 per step
 
 
+class PlatformHealth(str, Enum):
+    """
+    Current platform measurement state — changes per narrative phase.
+    Tells the agent what structural signal conditions it is operating under.
+    """
+    NOMINAL           = "Nominal"           # Phase 1: clean measurement
+    SIGNAL_LOSS       = "Signal_Loss"       # Phase 2: ATT blackout active
+    ANDROMEDA_GLITCHED = "Andromeda_Glitched" # Phase 3: bid-change sensitivity
+    PEAK_LOAD         = "Peak_Load"         # Phase 4: Black Friday volatility
+
+
+class LearningStatus(str, Enum):
+    """
+    Campaign algorithm learning state.
+    Reset means CVR is suppressed for ~7 steps after a large allocation change.
+    """
+    OPTIMIZED = "Optimized"   # Normal performance
+    LEARNING  = "Learning"    # Ramping up after reset
+    RESET     = "Reset"       # Just triggered — degraded CVR for next 7 steps
+
+
+class MarketTrend(str, Enum):
+    """Synthetic leading indicator generated at episode start."""
+    RISING  = "Rising"
+    FALLING = "Falling"
+
+
 # ---------------------------------------------------------------------------
 # Per-campaign noisy stats (what the agent observes per campaign per step)
 # ---------------------------------------------------------------------------
@@ -98,6 +125,23 @@ class Observation(BaseModel):
         default=None,
         description="Human-readable warning e.g. 'epsilon below 0.2'"
     )
+    # Q4 Gauntlet narrative fields
+    day:                   int            = Field(
+        default=0,
+        description="Current day in the 100-day episode (1-100). Used to track narrative phase."
+    )
+    platform_health:       PlatformHealth = Field(
+        default=PlatformHealth.NOMINAL,
+        description="Current platform measurement state. Changes per narrative phase."
+    )
+    learning_status:       LearningStatus = Field(
+        default=LearningStatus.OPTIMIZED,
+        description="Campaign algorithm state. Reset = degraded CVR for ~7 steps."
+    )
+    market_trend:          MarketTrend    = Field(
+        default=MarketTrend.RISING,
+        description="Synthetic leading indicator generated at episode start."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +174,25 @@ class Action(BaseModel):
     legal_reason_code:  Optional[str]  = Field(
         default=None,
         description="Task 4: legal justification code e.g. GDPR_ART17, DPA_NOTICE, REGULATORY_HOLD."
+    )
+    # Q4 Gauntlet action fields
+    pacing_speed:       float          = Field(
+        default=1.0,
+        ge=0.5,
+        le=2.0,
+        description=(
+            "Budget pacing multiplier. 1.0 = standard. "
+            "Above 1.5 risks the Phase 4 midnight overspend bug (30% chance per step). "
+            "Below 1.0 is conservative and avoids the bug."
+        ),
+    )
+    use_capi:           bool           = Field(
+        default=False,
+        description=(
+            "Q4 Gauntlet: spend 2.0 epsilon to receive true conversion count "
+            "instead of noisy estimate. Key decision during Phase 2 ATT blackout. "
+            "Ration carefully — exhausting epsilon early means flying blind in Phase 4."
+        ),
     )
 
     @model_validator(mode="after")
@@ -210,6 +273,10 @@ class EpisodeState(BaseModel):
     is_done:              bool             = False
     audit_fired_at:       Optional[int]   = Field(default=None, description="Task 4: step when audit fired")
     flagged_campaign:     Optional[str]   = Field(default=None, description="Task 4: suspended campaign")
+    # Q4 Gauntlet tracking fields
+    learning_resets:      int             = Field(default=0, ge=0, description="Q4: number of Andromeda glitch resets triggered")
+    overspend_events:     int             = Field(default=0, ge=0, description="Q4: number of Phase 4 midnight overspend bug triggers")
+    capi_calls_used:      int             = Field(default=0, ge=0, description="Q4: total CAPI calls made this episode")
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +309,7 @@ class TaskDefinition(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    task_id: int   = Field(default=1, ge=1, le=4)
+    task_id: int   = Field(default=1, ge=1, le=7)
     seed:    Optional[int] = Field(
         default=None,
         description="Fix the random start index for reproducible episodes"
@@ -255,7 +322,7 @@ class ResetRequest(BaseModel):
 
 
 class GraderRequest(BaseModel):
-    task_id: int = Field(ge=1, le=4)
+    task_id: int = Field(ge=1, le=7)
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +363,7 @@ class SimulateRequest(BaseModel):
     Runs a full episode with a hardcoded built-in strategy and returns
     the score + a step-by-step trace — no code required.
     """
-    task_id:  int         = Field(ge=1, le=4)
+    task_id:  int         = Field(ge=1, le=7)
     strategy: str         = Field(
         description=(
             "Built-in policy to run. "

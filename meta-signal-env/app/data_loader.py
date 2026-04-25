@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -125,6 +125,59 @@ def get_snapshot() -> CriteoSnapshot:
     return _snapshot
 
 
+# ---------------------------------------------------------------------------
+# Market Trend Generator — synthetic leading indicator for Q4 Gauntlet
+# ---------------------------------------------------------------------------
+
+class MarketTrendGenerator:
+    """
+    Generates a synthetic 100-day market trend signal at episode start.
+
+    The signal is a smoothed random walk that slowly oscillates between
+    Rising and Falling. It is seeded at episode reset so the same seed
+    always produces the same trend sequence — fully reproducible.
+
+    The agent sees this as `market_trend` in every Observation.
+    It is a leading indicator: Rising means the market is expanding
+    (higher true CVR multiplier incoming), Falling means contraction.
+
+    Design intent:
+      - Transitions are gradual (5-day moving average) so the agent
+        can learn to detect the direction before it fully arrives.
+      - About 40-60% of days are Rising, 40-60% Falling — balanced
+        enough that the agent must learn to read the signal rather
+        than always betting one way.
+    """
+
+    EPISODE_LENGTH = 100
+
+    def __init__(self, seed: int = 42) -> None:
+        rng = np.random.default_rng(seed)
+
+        # Generate a random walk and smooth it with a 5-day window
+        raw = rng.standard_normal(self.EPISODE_LENGTH)
+        smoothed = np.convolve(raw, np.ones(5) / 5, mode="same")
+
+        # Trend is Rising when smoothed value > 0, Falling otherwise
+        self._trends: List[bool] = [float(v) > 0 for v in smoothed]
+
+    def get(self, day: int) -> "str":
+        """
+        Return 'Rising' or 'Falling' for the given day (1-indexed).
+        Day is clamped to [1, 100].
+        """
+        idx = max(0, min(day - 1, self.EPISODE_LENGTH - 1))
+        return "Rising" if self._trends[idx] else "Falling"
+
+    def as_list(self) -> List[str]:
+        """Return the full 100-day trend sequence as a list of strings."""
+        return ["Rising" if t else "Falling" for t in self._trends]
+
+    def rising_fraction(self) -> float:
+        """Fraction of days that are Rising — useful for debugging."""
+        return sum(self._trends) / len(self._trends)
+
+
 # ------------------------------------------------------------------
 # Quick sanity check when run directly
 # ------------------------------------------------------------------
@@ -141,3 +194,18 @@ if __name__ == "__main__":
     batch = snap.get_batch(0, 5)
     print(f"Sample batch (5 rows, {len(batch.columns)} feature cols):")
     print(batch[["I1", "I2", "C1", "C2"]].to_string())
+
+    # Market trend generator
+    print("\n--- MarketTrendGenerator (seed=42) ---")
+    gen = MarketTrendGenerator(seed=42)
+    print(f"Rising fraction: {gen.rising_fraction():.2f}")
+    trends = gen.as_list()
+    print(f"Days 1-10:  {trends[:10]}")
+    print(f"Days 21-30: {trends[20:30]}")
+    print(f"Days 51-60: {trends[50:60]}")
+    print(f"Days 81-90: {trends[80:90]}")
+
+    # Different seed produces different sequence
+    gen2 = MarketTrendGenerator(seed=99)
+    print(f"\nSeed=99 rising fraction: {gen2.rising_fraction():.2f}")
+    print(f"Days 1-10: {gen2.as_list()[:10]}")

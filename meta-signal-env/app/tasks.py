@@ -128,12 +128,84 @@ TASK_CONFIGS: Dict[int, TaskDefinition] = {
             "legal_code_quality": 0.30,
         },
     ),
+    5: TaskDefinition(
+        task_id=5,
+        name="Signal Recovery",
+        description=(
+            "Q4 Gauntlet — Phase 1 & early Phase 2 (30 days). "
+            "Days 1-20: clean signal, identify camp_feed as the winner. "
+            "Days 21-30: ATT fires — noise triples. Use CAPI calls (2.0 epsilon each) "
+            "to get clean conversion data during the blackout. "
+            "Ration CAPI carefully — you only have budget for ~5 calls. "
+            "Graded on ROAS at day 30 and how efficiently CAPI was used."
+        ),
+        max_steps=30,
+        initial_budget=3000.0,
+        initial_epsilon=8.0,
+        privacy_regime=PrivacyRegime.STANDARD,
+        target_roas=1.5,
+        max_features=3,
+        grader_weights={
+            "roas_score":       0.50,
+            "capi_efficiency":  0.30,
+            "budget_survived":  0.20,
+        },
+    ),
+    6: TaskDefinition(
+        task_id=6,
+        name="Andromeda Stability",
+        description=(
+            "Q4 Gauntlet — Phases 1, 2, and 3 (75 days). "
+            "Days 1-20: clean signal. "
+            "Days 21-50: ATT blackout — use CAPI wisely. "
+            "Days 51-75: Andromeda glitch — any allocation change > 20% in one step "
+            "triggers a 7-day learning reset (CVR drops to 30%). "
+            "Hold allocations steady. The signal is lying. Patience wins. "
+            "Graded on Phase 3 ROAS and how few resets you triggered."
+        ),
+        max_steps=75,
+        initial_budget=7500.0,
+        initial_epsilon=12.0,
+        privacy_regime=PrivacyRegime.STANDARD,
+        target_roas=1.2,
+        max_features=3,
+        grader_weights={
+            "roas_phase3":      0.40,
+            "stability_score":  0.40,
+            "oracle_proximity": 0.20,
+        },
+    ),
+    7: TaskDefinition(
+        task_id=7,
+        name="Q4 Champion",
+        description=(
+            "Q4 Gauntlet — Full 100-day episode across all 4 phases. "
+            "Days 1-20: build your portfolio. "
+            "Days 21-50: ATT blackout — ration your 10 CAPI calls. "
+            "Days 51-80: Andromeda glitch — no large allocation swings. "
+            "Days 81-100: Black Friday — noise doubles and pacing_speed > 1.5 "
+            "risks a 30% chance of dumping your remaining budget in one step. "
+            "Survive to day 100 with budget remaining and ROAS above 1.0. "
+            "Baseline agents collapse around day 65."
+        ),
+        max_steps=100,
+        initial_budget=10000.0,
+        initial_epsilon=20.0,
+        privacy_regime=PrivacyRegime.STANDARD,
+        target_roas=1.0,
+        max_features=3,
+        grader_weights={
+            "cumulative_roas":  0.40,
+            "survival_score":   0.30,
+            "discipline_score": 0.30,
+        },
+    ),
 }
 
 
 def get_task_config(task_id: int) -> TaskDefinition:
     if task_id not in TASK_CONFIGS:
-        raise ValueError(f"Unknown task_id {task_id}. Choose 1, 2, 3, or 4.")
+        raise ValueError(f"Unknown task_id {task_id}. Choose 1–7.")
     return TASK_CONFIGS[task_id]
 
 
@@ -526,6 +598,222 @@ def grade_task4(
             "violations":       float(state.regulatory_violations),
             "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
             "steps_completed":  float(state.step),
+        },
+        explanation=explanation,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Task 5 grader — Signal Recovery (Q4 Gauntlet, 30 days)
+# ---------------------------------------------------------------------------
+
+def grade_task5(
+    state: EpisodeState,
+    alloc_history: List[Dict[str, float]],
+    privacy_engine: "PrivacyEngine",
+) -> GraderResult:
+    """
+    Task 5 — Signal Recovery (30 days)
+
+    50% — ROAS score vs target at end of episode
+    30% — CAPI efficiency: used CAPI in Phase 2 (days 21+), not wastefully in Phase 1
+    20% — Budget survived: didn't exhaust budget before day 30
+    """
+    cfg = TASK_CONFIGS[5]
+
+    avg_roas = _avg_step_roas(state)
+    roas_s   = _roas_score(avg_roas, cfg.target_roas)
+
+    # CAPI efficiency: reward using CAPI during Phase 2 (steps 21+), penalise Phase 1 waste
+    total_capi = state.capi_calls_used
+    phase2_start = 20  # step index (0-based) when Phase 2 begins
+    phase1_steps = state.history[:phase2_start]
+    phase1_capi  = sum(1 for r in phase1_steps if getattr(r.observation, "day", 0) <= 20
+                       and r.info.epsilon_cost > 2.0)  # CAPI costs 2.0+ epsilon
+    if total_capi == 0:
+        capi_efficiency_s = 0.3   # used no CAPI at all — partial credit
+    else:
+        phase2_capi = max(0, total_capi - phase1_capi)
+        # Reward: 1.0 if all CAPI calls in Phase 2, decays if wasted in Phase 1
+        capi_efficiency_s = min(1.0, phase2_capi / max(total_capi, 1))
+
+    # Budget survived: reward finishing with budget remaining
+    budget_fraction = state.budget_remaining / max(state.budget_initial, 1.0)
+    budget_s = min(1.0, budget_fraction * 2.0)   # full score at 50%+ remaining
+
+    score = roas_s * 0.50 + capi_efficiency_s * 0.30 + budget_s * 0.20
+
+    capi_verdict = (
+        "used CAPI calls efficiently during the ATT blackout"
+        if capi_efficiency_s >= 0.7
+        else "used some CAPI calls but wasted budget in Phase 1"
+        if capi_efficiency_s >= 0.3
+        else "did not use CAPI calls — flew blind during the ATT blackout"
+    )
+    explanation = (
+        f"Signal Recovery: agent {capi_verdict}; "
+        f"avg ROAS {avg_roas:.2f}x vs {cfg.target_roas}x target; "
+        f"{total_capi} CAPI call(s) used, {budget_fraction*100:.0f}% budget remaining."
+    )
+
+    return GraderResult(
+        task_id=5,
+        score=round(min(1.0, max(0.0, score)), 4),
+        breakdown={
+            "roas_score":      round(roas_s, 4),
+            "capi_efficiency": round(capi_efficiency_s, 4),
+            "budget_survived": round(budget_s, 4),
+        },
+        summary={
+            "avg_roas":        round(avg_roas, 4),
+            "target_roas":     cfg.target_roas,
+            "capi_calls_used": float(total_capi),
+            "epsilon_used":    round(state.epsilon_initial - state.epsilon_remaining, 4),
+            "budget_remaining": round(state.budget_remaining, 2),
+            "steps_completed": float(state.step),
+        },
+        explanation=explanation,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Task 6 grader — Andromeda Stability (Q4 Gauntlet, 75 days)
+# ---------------------------------------------------------------------------
+
+def grade_task6(
+    state: EpisodeState,
+    alloc_history: List[Dict[str, float]],
+    privacy_engine: "PrivacyEngine",
+) -> GraderResult:
+    """
+    Task 6 — Andromeda Stability (75 days)
+
+    40% — Phase 3 ROAS (steps 51–75)
+    40% — Stability: penalise learning resets triggered during Phase 3
+    20% — Oracle proximity overall
+    """
+    cfg = TASK_CONFIGS[6]
+
+    # Phase 3 ROAS: steps 50+ (0-indexed)
+    phase3_roas_vals = [r.info.step_roas for r in state.history if r.observation.step > 50]
+    phase3_roas      = float(np.mean(phase3_roas_vals)) if phase3_roas_vals else 0.0
+    roas_phase3_s    = _roas_score(phase3_roas, cfg.target_roas)
+
+    # Stability: each learning reset costs 0.2 points, max 5 resets = 0.0
+    resets         = state.learning_resets
+    stability_s    = max(0.0, 1.0 - resets * 0.20)
+
+    # Oracle proximity overall
+    avg_roas   = _avg_step_roas(state)
+    avg_oracle = _avg_oracle_roas(state)
+    proximity_s = min(1.0, avg_roas / avg_oracle) if avg_oracle > 0 else _roas_score(avg_roas, cfg.target_roas)
+
+    score = roas_phase3_s * 0.40 + stability_s * 0.40 + proximity_s * 0.20
+
+    stability_verdict = (
+        "held allocations steady through the Andromeda glitch"
+        if resets == 0
+        else f"triggered {resets} learning reset(s) — each cost 7 days of degraded CVR"
+    )
+    explanation = (
+        f"Andromeda Stability: agent {stability_verdict}; "
+        f"Phase 3 ROAS {phase3_roas:.2f}x vs {cfg.target_roas}x target; "
+        f"oracle proximity {proximity_s:.2f}."
+    )
+
+    return GraderResult(
+        task_id=6,
+        score=round(min(1.0, max(0.0, score)), 4),
+        breakdown={
+            "roas_phase3":      round(roas_phase3_s, 4),
+            "stability_score":  round(stability_s, 4),
+            "oracle_proximity": round(proximity_s, 4),
+        },
+        summary={
+            "phase3_avg_roas":  round(phase3_roas, 4),
+            "overall_avg_roas": round(avg_roas, 4),
+            "learning_resets":  float(resets),
+            "capi_calls_used":  float(state.capi_calls_used),
+            "epsilon_used":     round(state.epsilon_initial - state.epsilon_remaining, 4),
+            "steps_completed":  float(state.step),
+        },
+        explanation=explanation,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Task 7 grader — Q4 Champion (Q4 Gauntlet, 100 days)
+# ---------------------------------------------------------------------------
+
+def grade_task7(
+    state: EpisodeState,
+    alloc_history: List[Dict[str, float]],
+    privacy_engine: "PrivacyEngine",
+) -> GraderResult:
+    """
+    Task 7 — Q4 Champion (100 days, all 4 phases)
+
+    40% — Cumulative ROAS across all 100 steps
+    30% — Survival: reached day 100 with budget remaining
+    30% — Discipline: avoided Phase 4 midnight overspend bug
+    """
+    cfg = TASK_CONFIGS[7]
+
+    avg_roas     = _avg_step_roas(state)
+    cumulative_s = _roas_score(avg_roas, cfg.target_roas)
+
+    # Survival: full score if budget > 10% remaining at day 100
+    budget_fraction = state.budget_remaining / max(state.budget_initial, 1.0)
+    completed_full  = state.step >= cfg.max_steps
+    if completed_full and budget_fraction >= 0.10:
+        survival_s = 1.0
+    elif completed_full:
+        survival_s = 0.5   # survived but budget exhausted
+    else:
+        # Partial credit proportional to days survived
+        survival_s = min(0.8, state.step / cfg.max_steps)
+
+    # Discipline: each overspend event costs 0.2; max 5 wipes it out
+    overspend_events = state.overspend_events
+    discipline_s     = max(0.0, 1.0 - overspend_events * 0.20)
+
+    score = cumulative_s * 0.40 + survival_s * 0.30 + discipline_s * 0.30
+
+    survival_verdict = (
+        "survived all 100 days with budget remaining"
+        if completed_full and budget_fraction >= 0.10
+        else "survived 100 days but exhausted budget"
+        if completed_full
+        else f"collapsed at day {state.step} (budget exhausted or forced done)"
+    )
+    discipline_verdict = (
+        "avoided the Black Friday overspend bug entirely"
+        if overspend_events == 0
+        else f"triggered the overspend bug {overspend_events} time(s)"
+    )
+    explanation = (
+        f"Q4 Champion: agent {survival_verdict} with avg ROAS {avg_roas:.2f}x; "
+        f"{discipline_verdict}; "
+        f"score={score:.3f}."
+    )
+
+    return GraderResult(
+        task_id=7,
+        score=round(min(1.0, max(0.0, score)), 4),
+        breakdown={
+            "cumulative_roas":  round(cumulative_s, 4),
+            "survival_score":   round(survival_s, 4),
+            "discipline_score": round(discipline_s, 4),
+        },
+        summary={
+            "avg_roas":          round(avg_roas, 4),
+            "target_roas":       cfg.target_roas,
+            "budget_remaining":  round(state.budget_remaining, 2),
+            "overspend_events":  float(overspend_events),
+            "learning_resets":   float(state.learning_resets),
+            "capi_calls_used":   float(state.capi_calls_used),
+            "epsilon_used":      round(state.epsilon_initial - state.epsilon_remaining, 4),
+            "steps_completed":   float(state.step),
         },
         explanation=explanation,
     )

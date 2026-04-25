@@ -20,7 +20,7 @@ client = TestClient(app)
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    assert r.json()["status"] == "healthy"
 
 
 # ---------------------------------------------------------------------------
@@ -31,12 +31,12 @@ def test_tasks_returns_three():
     r = client.get("/tasks")
     assert r.status_code == 200
     tasks = r.json()
-    assert len(tasks) == 4
+    assert len(tasks) == 7
 
 def test_tasks_ids_are_1_2_3():
     tasks = client.get("/tasks").json()
     ids = {t["task_id"] for t in tasks}
-    assert ids == {1, 2, 3, 4}
+    assert ids == {1, 2, 3, 4, 5, 6, 7}
 
 def test_tasks_have_required_fields():
     for task in client.get("/tasks").json():

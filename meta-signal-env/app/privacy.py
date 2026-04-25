@@ -33,6 +33,7 @@ from app.data_loader import ALL_FEATURES, INTEGER_FEATURES, CATEGORICAL_FEATURES
 FEATURE_COST      = 0.05   # epsilon per feature in feature_mask
 ATTRIBUTION_COST  = 0.20   # extra epsilon for probabilistic attribution
 SENSITIVITY       = 1.0    # L1 sensitivity of a conversion count query
+CAPI_COST         = 2.0    # epsilon cost for a CAPI call (use_capi=True)
 
 # ---------------------------------------------------------------------------
 # Regime thresholds (epsilon_remaining)
@@ -78,6 +79,8 @@ class PrivacyEngine:
         self._forced_regime    = forced_regime
         self._rng              = np.random.default_rng(seed)
         self._noise_multiplier = 1.0   # Task 2: jumps to 8x at step 3
+        self._att_multiplier   = 1.0   # Q4 Phase 2: structural ATT signal loss (epsilon can't fix this)
+        self._capi_calls       = 0     # Q4: number of CAPI calls made this episode
 
         # Audit trail -- list of (feature_count, attribution, cost) per step
         self._audit: List[Tuple[int, str, float]] = []
@@ -112,12 +115,20 @@ class PrivacyEngine:
     @property
     def noise_scale(self) -> float:
         """
-        Laplace noise scale = (sensitivity / epsilon_remaining) * noise_multiplier.
-        noise_multiplier jumps to 8.0 at Task 2 step 3 without burning epsilon.
+        Laplace noise scale = (sensitivity / epsilon_remaining) * noise_multiplier * att_multiplier.
+
+        noise_multiplier: Task 2 structural jump (8x at step 3).
+        att_multiplier:   Q4 Phase 2 ATT structural loss — cannot be fixed by preserving epsilon.
+                          Represents iOS tracking loss — a data pipeline problem, not a budget problem.
         Clipped at a maximum of 50.
         """
         eps = max(self._epsilon, 1e-6)
-        return min((SENSITIVITY / eps) * self._noise_multiplier, 50.0)
+        return min((SENSITIVITY / eps) * self._noise_multiplier * self._att_multiplier, 50.0)
+
+    @property
+    def capi_calls(self) -> int:
+        """Number of CAPI calls made this episode."""
+        return self._capi_calls
 
     # ------------------------------------------------------------------
     # Core operations
@@ -127,9 +138,11 @@ class PrivacyEngine:
         self,
         feature_mask: List[str],
         attribution: AttributionMethod = AttributionMethod.LAST_CLICK,
+        use_capi: bool = False,
     ) -> float:
         """
-        Deduct epsilon for a single step's feature usage and attribution choice.
+        Deduct epsilon for a single step's feature usage, attribution choice,
+        and optional CAPI call.
 
         Returns the total epsilon cost for this step.
         Raises ValueError if any feature name is not in ALL_FEATURES.
@@ -141,24 +154,30 @@ class PrivacyEngine:
                 f"Valid: I1-I13, C1-C26."
             )
 
-        feature_cost      = len(feature_mask) * FEATURE_COST
-        attribution_cost  = ATTRIBUTION_COST if attribution == AttributionMethod.PROBABILISTIC else 0.0
-        total_cost        = feature_cost + attribution_cost
+        feature_cost     = len(feature_mask) * FEATURE_COST
+        attribution_cost = ATTRIBUTION_COST if attribution == AttributionMethod.PROBABILISTIC else 0.0
+        capi_cost        = CAPI_COST if use_capi else 0.0
+        total_cost       = feature_cost + attribution_cost + capi_cost
+
+        if use_capi:
+            self._capi_calls += 1
 
         self._epsilon -= total_cost
         self._audit.append((len(feature_mask), attribution.value, total_cost))
 
         return total_cost
 
-    def add_noise(self, true_count: float) -> float:
+    def add_noise(self, true_count: float, use_capi: bool = False) -> float:
         """
         Add Laplace noise to a true conversion count.
 
-        The noise scale grows as epsilon depletes -- this is the core
-        signal-degradation mechanic the agent must reason about.
+        When use_capi=True the engine already deducted 2.0 epsilon via consume()
+        and returns the true count with no noise — simulating CAPI's clean signal.
 
         Returns the noisy count (may be negative; env.py clips to 0).
         """
+        if use_capi:
+            return true_count   # CAPI gives clean data — no noise added
         noise = self._rng.laplace(loc=0.0, scale=self.noise_scale)
         return true_count + noise
 
@@ -169,6 +188,20 @@ class PrivacyEngine:
         Used only by the environment, not by the agent.
         """
         self._noise_multiplier = 8.0
+
+    def force_att_loss(self, multiplier: float = 3.0) -> None:
+        """
+        Q4 Phase 2: apply ATT structural signal loss on top of epsilon noise.
+
+        This is NOT fixable by preserving epsilon — it represents iOS tracking
+        loss at the data pipeline level. The only remedy is spending CAPI calls.
+        multiplier=3.0 means 3x more noise even with full epsilon budget.
+        """
+        self._att_multiplier = multiplier
+
+    def clear_att_loss(self) -> None:
+        """Q4 Phase 3+: ATT multiplier returns to 1.0 as new measurement systems stabilise."""
+        self._att_multiplier = 1.0
 
     def available_features(self) -> List[str]:
         """
@@ -205,6 +238,8 @@ class PrivacyEngine:
         """Reset budget and RNG -- called by env.reset(), not by the agent."""
         self._epsilon          = self._initial_epsilon
         self._noise_multiplier = 1.0
+        self._att_multiplier   = 1.0
+        self._capi_calls       = 0
         self._audit.clear()
         self._rng = np.random.default_rng(seed)
 

@@ -22,6 +22,7 @@ import numpy as np
 
 from app.data_loader import (
     CAMPAIGN_NAMES,
+    MarketTrendGenerator,
     get_snapshot,
 )
 from app.models import (
@@ -30,7 +31,10 @@ from app.models import (
     CampaignStats,
     EpisodeState,
     GraderResult,
+    LearningStatus,
+    MarketTrend,
     Observation,
+    PlatformHealth,
     PrivacyRegime,
     StepInfo,
     StepResult,
@@ -43,6 +47,9 @@ from app.tasks import (
     grade_task2,
     grade_task3,
     grade_task4,
+    grade_task5,
+    grade_task6,
+    grade_task7,
 )
 
 # ---------------------------------------------------------------------------
@@ -54,6 +61,24 @@ ROAS_MULTIPLIER    = 25.0   # $ revenue per $ spent × CVR
                             # camp_feed CVR ~0.085 → ROAS ~2.1 (above target 1.5)
                             # camp_reels CVR ~0.036 → ROAS ~0.9
                             # camp_stories CVR ~0.020 → ROAS ~0.5
+
+# Q4 Gauntlet phase boundaries (day numbers, inclusive)
+Q4_TASKS           = frozenset({5, 6, 7})
+PHASE1_END         = 20    # days 1-20: clean signal
+PHASE2_END         = 50    # days 21-50: ATT blackout
+PHASE3_END         = 80    # days 51-80: Andromeda glitch
+# days 81-100: Black Friday
+
+ATT_NOISE_MULT     = 3.0   # Phase 2 structural ATT signal loss multiplier
+PHASE4_NOISE_MULT  = 2.0   # Phase 4 additional noise volatility multiplier
+ANDROMEDA_THRESHOLD = 0.20  # allocation share change that triggers a learning reset
+LEARNING_RESET_CVR  = 0.30  # CVR fraction during reset window
+LEARNING_RESET_DAYS = 7     # steps of degraded CVR after a reset
+OVERSPEND_THRESHOLD = 1.5   # pacing_speed above this risks overspend bug
+OVERSPEND_PROB      = 0.30  # probability of midnight overspend bug firing
+OVERSPEND_MULT      = 2.5   # how much budget gets dumped when it fires
+SELF_IMPROVE_ROAS   = 3.0   # ROAS threshold for self-improvement trigger
+SELF_IMPROVE_STREAK = 5     # consecutive steps above threshold to escalate
 
 # Placement label derived from campaign id
 _PLACEMENT: Dict[str, str] = {
@@ -75,8 +100,14 @@ class MetaSignalEnv:
         self._snapshot       = get_snapshot()
         self._state:         Optional[EpisodeState]     = None
         self._privacy:       Optional[PrivacyEngine]    = None
-        self._alloc_history: List[Dict[str, float]]     = []   # per-step allocations
-        self._legal_codes:   List[Optional[str]]        = []   # Task 4: legal reason codes per step
+        self._alloc_history: List[Dict[str, float]]     = []
+        self._legal_codes:   List[Optional[str]]        = []
+        # Q4 Gauntlet state
+        self._market_trend:         Optional[MarketTrendGenerator] = None
+        self._current_phase:        int   = 0     # 1-4 for Q4 tasks, 0 otherwise
+        self._learning_reset_countdown: int = 0   # steps remaining in Andromeda reset window
+        self._difficulty_level:     int   = 0     # self-improvement escalation counter
+        self._episode_rng:          Optional[np.random.Generator] = None  # for overspend rolls
 
     # ------------------------------------------------------------------
     # reset
@@ -134,6 +165,19 @@ class MetaSignalEnv:
             camp_list = list(CAMPAIGN_NAMES)
             self._state.flagged_campaign = camp_list[start_row % len(camp_list)]
 
+        # Q4 Gauntlet initialisation
+        if task_id in Q4_TASKS:
+            trend_seed = int(rng.integers(0, 2**31)) if seed is not None else None
+            self._market_trend           = MarketTrendGenerator(seed=trend_seed or 42)
+            self._current_phase          = 1
+            self._learning_reset_countdown = 0
+            self._episode_rng            = np.random.default_rng(noise_seed)
+        else:
+            self._market_trend           = None
+            self._current_phase          = 0
+            self._learning_reset_countdown = 0
+            self._episode_rng            = None
+
         return self._build_initial_observation()
 
     # ------------------------------------------------------------------
@@ -173,12 +217,31 @@ class MetaSignalEnv:
         if audit_already_fired and self._state.flagged_campaign:
             allocations[self._state.flagged_campaign] = 0.0
 
+        # Q4: Andromeda glitch check (Phase 3) — before appending to history
+        is_q4 = self._state.task_id in Q4_TASKS
+        if is_q4 and self._current_phase == 3 and self._alloc_history:
+            self._check_andromeda_glitch(allocations, cfg.initial_budget)
+
+        # Q4: overspend bug (Phase 4)
+        if is_q4 and self._current_phase == 4 and action.pacing_speed > OVERSPEND_THRESHOLD:
+            assert self._episode_rng is not None
+            if float(self._episode_rng.random()) < OVERSPEND_PROB:
+                allocations = {
+                    c: v * OVERSPEND_MULT for c, v in allocations.items()
+                }
+                allocations = self._clip_allocations(allocations, self._state.budget_remaining)
+                self._state.overspend_events += 1
+
         actual_spend = sum(allocations.values())
         self._alloc_history.append(dict(allocations))
         self._legal_codes.append(action.legal_reason_code)
 
-        # --- 2. Consume epsilon ---
-        epsilon_cost = self._privacy.consume(action.feature_mask, action.attribution)
+        # --- 2. Consume epsilon (wires CAPI cost if use_capi=True) ---
+        epsilon_cost = self._privacy.consume(
+            action.feature_mask, action.attribution, use_capi=action.use_capi
+        )
+        if action.use_capi:
+            self._state.capi_calls_used += 1
 
         # --- 3. Pull rows from snapshot ---
         row_start = self._state.start_row + self._state.step * ROWS_PER_STEP
@@ -196,6 +259,13 @@ class MetaSignalEnv:
             c: true_conversions[c] / max(impressions[c], 1)
             for c in CAMPAIGN_NAMES
         }
+
+        # Q4: apply learning reset CVR suppression if active
+        if is_q4 and self._learning_reset_countdown > 0:
+            for camp in CAMPAIGN_NAMES:
+                true_cvr[camp]          = true_cvr[camp] * LEARNING_RESET_CVR
+                true_conversions[camp]  = int(true_conversions[camp] * LEARNING_RESET_CVR)
+            self._learning_reset_countdown -= 1
 
         # --- Market shift (Task 2, step 9+): camp_reels CVR temporarily doubles ---
         # Fires from the 9th action onward (step counter == 8 before increment).
@@ -240,9 +310,9 @@ class MetaSignalEnv:
         best_camp  = max(true_cvr, key=true_cvr.get)
         oracle_roas = true_cvr[best_camp] * ROAS_MULTIPLIER
 
-        # --- 7. Noisy observations ---
+        # --- 7. Noisy observations (CAPI bypasses noise entirely) ---
         noisy_conversions: Dict[str, float] = {
-            c: max(0.0, self._privacy.add_noise(true_conversions[c]))
+            c: max(0.0, self._privacy.add_noise(true_conversions[c], use_capi=action.use_capi))
             for c in CAMPAIGN_NAMES
         }
 
@@ -287,6 +357,11 @@ class MetaSignalEnv:
         ):
             self._state.audit_fired_at = self._state.step
 
+        # Q4 Gauntlet: phase transitions keyed on current day (= step after increment)
+        if is_q4:
+            self._update_q4_phase(self._state.step)
+            self._state.capi_calls_used = self._privacy.capi_calls
+
         done = (
             self._state.step >= self._state.total_steps
             or self._state.budget_remaining <= 0.0
@@ -326,6 +401,17 @@ class MetaSignalEnv:
             audit_active=audit_now_active,
             flagged_campaign=self._state.flagged_campaign if audit_now_active else None,
             warning=warning,
+            # Q4 Gauntlet narrative fields
+            day=self._state.step,
+            platform_health=self._get_platform_health(),
+            learning_status=(
+                LearningStatus.RESET if self._learning_reset_countdown > 0
+                else LearningStatus.OPTIMIZED
+            ),
+            market_trend=(
+                MarketTrend(self._market_trend.get(self._state.step))
+                if self._market_trend else MarketTrend.RISING
+            ),
         )
 
         info = StepInfo(
@@ -367,10 +453,17 @@ class MetaSignalEnv:
             result = grade_task3(self._state, self._alloc_history, self._privacy)
         elif task_id == 4:
             result = grade_task4(self._state, self._alloc_history, self._legal_codes)
+        elif task_id == 5:
+            result = grade_task5(self._state, self._alloc_history, self._privacy)
+        elif task_id == 6:
+            result = grade_task6(self._state, self._alloc_history, self._privacy)
+        elif task_id == 7:
+            result = grade_task7(self._state, self._alloc_history, self._privacy)
         else:
             raise ValueError(f"Unknown task_id {task_id}")
 
         self._state.final_score = result.score
+        self._self_improve(task_id)
         return result
 
     # ------------------------------------------------------------------
@@ -424,6 +517,88 @@ class MetaSignalEnv:
             ))
         return stats
 
+    # ------------------------------------------------------------------
+    # Q4 Gauntlet phase helpers
+    # ------------------------------------------------------------------
+
+    def _get_phase(self, day: int) -> int:
+        if day <= PHASE1_END:
+            return 1
+        if day <= PHASE2_END:
+            return 2
+        if day <= PHASE3_END:
+            return 3
+        return 4
+
+    def _update_q4_phase(self, day: int) -> None:
+        """Fire phase transitions when the day counter crosses a boundary."""
+        new_phase = self._get_phase(day)
+        if new_phase == self._current_phase:
+            return
+
+        old_phase = self._current_phase
+        self._current_phase = new_phase
+
+        if old_phase == 1 and new_phase == 2:
+            # ATT fires: structural noise that epsilon cannot fix
+            self._privacy.force_att_loss(ATT_NOISE_MULT)
+
+        elif old_phase == 2 and new_phase == 3:
+            # ATT normalises; Andromeda glitch activates (no noise change needed here —
+            # the glitch is about allocation stability, handled in _check_andromeda_glitch)
+            self._privacy.clear_att_loss()
+
+        elif old_phase == 3 and new_phase == 4:
+            # Black Friday: noise volatility doubles via Task2-style multiplier
+            self._privacy.force_high_noise()   # reuses 8x multiplier from existing method
+
+    def _get_platform_health(self) -> PlatformHealth:
+        if self._current_phase == 0:
+            return PlatformHealth.NOMINAL
+        if self._current_phase == 1:
+            return PlatformHealth.NOMINAL
+        if self._current_phase == 2:
+            return PlatformHealth.SIGNAL_LOSS
+        if self._current_phase == 3:
+            return PlatformHealth.ANDROMEDA_GLITCHED
+        return PlatformHealth.PEAK_LOAD
+
+    def _check_andromeda_glitch(
+        self, allocations: Dict[str, float], total_budget: float
+    ) -> None:
+        """
+        Compare current allocations to the previous step.
+        If any campaign share changes by > 20% of total budget, trigger a
+        7-step learning reset (CVR drops to 30% of normal).
+        """
+        if not self._alloc_history or self._learning_reset_countdown > 0:
+            return
+        prev = self._alloc_history[-1]
+        denom = max(total_budget, 1.0)
+        for camp in CAMPAIGN_NAMES:
+            delta = abs(allocations.get(camp, 0.0) - prev.get(camp, 0.0)) / denom
+            if delta > ANDROMEDA_THRESHOLD:
+                self._learning_reset_countdown = LEARNING_RESET_DAYS
+                self._state.learning_resets   += 1
+                break
+
+    def _self_improve(self, task_id: int) -> None:
+        """
+        After episode ends: if the agent beat ROAS_THRESHOLD for
+        SELF_IMPROVE_STREAK consecutive steps, escalate difficulty next episode.
+        Difficulty increases the base noise multiplier on the next reset.
+        """
+        if self._state is None or not self._state.history:
+            return
+        recent = self._state.history[-SELF_IMPROVE_STREAK:]
+        if (
+            len(recent) == SELF_IMPROVE_STREAK
+            and all(r.info.step_roas > SELF_IMPROVE_ROAS for r in recent)
+        ):
+            self._difficulty_level = min(self._difficulty_level + 1, 5)
+
+    # ------------------------------------------------------------------
+
     def _build_initial_observation(self) -> Observation:
         """
         Step-0 observation before any action is taken.
@@ -462,7 +637,7 @@ class MetaSignalEnv:
 if __name__ == "__main__":
     env = MetaSignalEnv()
 
-    for task_id in [1, 2, 3, 4]:
+    for task_id in [1, 2, 3, 4, 5, 6, 7]:
         cfg  = get_task_config(task_id)
         obs  = env.reset(task_id=task_id, seed=42)
         print(f"\n{'='*55}")

@@ -13,6 +13,7 @@ POST /reset           start a new episode
 POST /step            advance the episode by one step
 GET  /state           current episode state
 POST /grader          compute final score for active episode
+POST /hint            Q4 Gauntlet: context-aware hint for current phase
 POST /baseline        run the GPT-based baseline and return all three scores
 GET  /                web UI (HTML)
 """
@@ -36,6 +37,7 @@ from app.models import (
     GraderRequest,
     GraderResult,
     Observation,
+    PlatformHealth,
     ResetRequest,
     SimulateRequest,
     SimulateResult,
@@ -422,16 +424,145 @@ def simulate(request: SimulateRequest) -> SimulateResult:
 
 
 # ---------------------------------------------------------------------------
+# Hint  (Q4 Gauntlet Snorkel AI bonus)
+# ---------------------------------------------------------------------------
+
+# Hint templates keyed by PlatformHealth value
+_HINTS: dict = {
+    PlatformHealth.NOMINAL: {
+        "phase": 1,
+        "title": "Phase 1 — The Setup (Days 1–20)",
+        "situation": "Signal is clean. Use these steps to identify which campaign has the best ROAS.",
+        "advice": (
+            "Spread budget across all three campaigns in the first few steps to learn their CVRs. "
+            "camp_feed typically has the highest conversion rate (~8.5%). "
+            "Once identified, progressively shift budget toward it — but stay below 70% to avoid "
+            "the correlation penalty."
+        ),
+        "watch_for": "Correlation penalty: >70% spend on one campaign drops other campaigns' CTR by 15%.",
+        "capi_advice": "No need for CAPI calls yet — signal is clean. Save your CAPI budget for Phase 2.",
+    },
+    PlatformHealth.SIGNAL_LOSS: {
+        "phase": 2,
+        "title": "Phase 2 — ATT Blackout (Days 21–50)",
+        "situation": "iOS App Tracking Transparency has fired. Noise is 3× higher than normal. Epsilon cannot fix this.",
+        "advice": (
+            "The noisy signal is unreliable. Use CAPI calls (set use_capi=True, costs 2.0 epsilon each) "
+            "to get clean conversion data. Ration carefully — you have limited epsilon. "
+            "Aim for 1 CAPI call every 3–5 steps. Between calls, hold your allocations steady "
+            "rather than reacting to corrupted signals."
+        ),
+        "watch_for": "Epsilon exhaustion: if epsilon drops below 0.5 you enter high_noise regime — avoid this.",
+        "capi_advice": "Use CAPI now. This is what it is for. Do not save all calls for Phase 3.",
+    },
+    PlatformHealth.ANDROMEDA_GLITCHED: {
+        "phase": 3,
+        "title": "Phase 3 — Andromeda Glitch (Days 51–80)",
+        "situation": (
+            "The Andromeda update is live. Any allocation change greater than 20% of total budget "
+            "in a single step triggers a 7-day learning reset — CVR drops to 30% of normal."
+        ),
+        "advice": (
+            "Do NOT react to the noisy signal. Hold your allocations steady from Phase 2. "
+            "The signal is still noisy and will mislead you. Patience is the correct strategy. "
+            "If you must adjust, change by less than 20% of total budget per step. "
+            "learning_status=Reset in the observation means you already triggered one — wait 7 steps."
+        ),
+        "watch_for": "learning_status field: if Reset, do not make any allocation changes for 7 steps.",
+        "capi_advice": "CAPI is still useful here for clean data, but Phase 2 is when you need it most.",
+    },
+    PlatformHealth.PEAK_LOAD: {
+        "phase": 4,
+        "title": "Phase 4 — Black Friday Peak (Days 81–100)",
+        "situation": (
+            "Maximum traffic load. Noise volatility has doubled. "
+            "If you set pacing_speed above 1.5, there is a 30% chance per step of a midnight "
+            "budget dump — your remaining budget is spent in one step."
+        ),
+        "advice": (
+            "Set pacing_speed=1.0 (default). Do not be greedy. "
+            "A budget dump this late in the episode is catastrophic — there are not enough steps "
+            "to recover. Prioritise survival over ROAS maximisation. "
+            "Hold the allocation you built in Phase 2. Do not trigger Andromeda resets."
+        ),
+        "watch_for": "pacing_speed > 1.5 = 30% overspend risk per step. Not worth it.",
+        "capi_advice": "Only use CAPI if you have epsilon to spare. Budget first.",
+    },
+}
+
+
+@app.post("/hint", tags=["environment"])
+def hint() -> dict:
+    """
+    Q4 Gauntlet: returns a context-aware strategic hint for the current episode phase.
+
+    Reads the active episode state to determine which phase the agent is in,
+    then returns tailored advice about what to do next.
+
+    This simulates the Snorkel AI expert-in-the-loop mechanic — a domain expert
+    who knows the environment's hidden mechanics and can guide the agent.
+
+    Only meaningful for Q4 Gauntlet tasks (5, 6, 7). Returns a generic hint
+    for tasks 1–4.
+    """
+    with _lock:
+        try:
+            state = _env.state()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        if state.task_id not in (5, 6, 7):
+            return {
+                "phase": 0,
+                "title": "Standard Task",
+                "situation": f"Task {state.task_id} does not use Q4 Gauntlet phases.",
+                "advice": (
+                    "Identify the best-performing campaign via noisy ROAS signals. "
+                    "Preserve epsilon budget. Follow the explore → learn → exploit arc."
+                ),
+                "watch_for": "Correlation penalty (>70% concentration) and epsilon depletion.",
+                "capi_advice": "N/A — use_capi is a Q4 Gauntlet mechanic.",
+                "current_day": state.step,
+                "epsilon_remaining": state.epsilon_remaining,
+                "budget_remaining": state.budget_remaining,
+            }
+
+        # Get latest observation to read platform_health
+        if not state.history:
+            platform = PlatformHealth.NOMINAL
+        else:
+            platform = state.history[-1].observation.platform_health
+
+        base = _HINTS.get(platform, _HINTS[PlatformHealth.NOMINAL])
+
+        # Enrich with live episode stats
+        epsilon_pct = round(state.epsilon_remaining / max(state.epsilon_initial, 1e-9) * 100, 1)
+        budget_pct  = round(state.budget_remaining  / max(state.budget_initial,   1e-9) * 100, 1)
+
+        return {
+            **base,
+            "current_day":        state.step,
+            "epsilon_remaining":  round(state.epsilon_remaining, 3),
+            "epsilon_pct":        epsilon_pct,
+            "budget_remaining":   round(state.budget_remaining, 2),
+            "budget_pct":         budget_pct,
+            "learning_resets":    state.learning_resets,
+            "overspend_events":   state.overspend_events,
+            "capi_calls_used":    state.capi_calls_used,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Baseline
 # ---------------------------------------------------------------------------
 
 @app.post("/baseline", response_model=BaselineResult, tags=["evaluation"])
 def baseline() -> BaselineResult:
     """
-    Run the GPT-4o-mini baseline agent across all three tasks (seed=42).
+    Run the baseline agent across all 7 tasks (seed=42).
     Returns scores and per-task GraderResult breakdowns.
 
-    Requires OPENAI_API_KEY environment variable.
+    Requires HF_TOKEN environment variable (or API_BASE_URL + MODEL_NAME).
     """
     try:
         from baseline import run_baseline

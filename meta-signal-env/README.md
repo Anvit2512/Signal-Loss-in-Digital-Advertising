@@ -10,133 +10,160 @@ tags:
   - advertising
   - reinforcement-learning
   - differential-privacy
+  - q4-gauntlet
 ---
 
 # Meta-Signal: Privacy-Constrained Ad Budget Optimisation
 
-An RL environment where an AI agent manages advertising budget across three campaigns
-but can only observe **noisy, aggregated conversion data** — exactly how Meta's real
-ad system works after signal loss from iOS privacy changes.
+**Live demo:** [huggingface.co/spaces/Anvit25/meta-signal](https://huggingface.co/spaces/Anvit25/meta-signal)  
+**Dataset:** [huggingface.co/datasets/Anvit25/meta-signal-expert-demos](https://huggingface.co/datasets/Anvit25/meta-signal-expert-demos)  
+**Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)
+
+An OpenEnv-compliant RL environment where an AI agent manages advertising budget across
+three campaigns but can only observe **noisy, aggregated conversion data** — exactly how
+Meta's real ad system works after iOS signal loss. Includes the full **Q4 Gauntlet**
+extension: a 100-day narrative episode across four operational phases.
+
+---
 
 ## Why This Matters
 
 On October 26, 2022, Meta reported its third-quarter earnings. Revenue had fallen
-year-over-year for the second consecutive quarter — the first time that had happened
-in the company's history as a public company. The stock dropped 24% in after-hours
-trading. By the following morning, **$232 billion in market capitalisation had been
-erased in a single session** — the largest single-day destruction of market value for
-any company in US stock market history.
+year-over-year for the second consecutive quarter. The stock dropped 24% in after-hours
+trading. **$232 billion in market capitalisation was erased in a single session** — the
+largest single-day destruction of market value for any US company in history.
 
-Zuckerberg named two causes on the earnings call. One was the metaverse investment.
-The other was **signal loss**.
+Zuckerberg named two causes. One was the metaverse. The other was **signal loss**.
 
-Eighteen months earlier, Apple had shipped the **App Tracking Transparency (ATT)
-prompt** in iOS 14.5. The mechanic was simple: before any app could track a user
-across other apps and websites, it had to ask. Roughly 80% of users said no.
-Overnight, the pixel-level, deterministic, user-level conversion signals that Meta's
-ad auction had been trained on for a decade were replaced by something far noisier:
-aggregated counts, delayed postbacks, and Apple's own **SKAdNetwork** attribution
-— a single coarse-grained conversion value per install, delivered up to 72 hours
-late, with no user identity attached.
+Apple's **App Tracking Transparency (ATT)** prompt shipped in iOS 14.5. Roughly 80% of
+users opted out. Overnight, the deterministic, pixel-level conversion signals that Meta's
+ad auction had been trained on for a decade were replaced by aggregated counts, delayed
+postbacks, and Apple's coarse-grained SKAdNetwork attribution.
 
-Meta's ad system had been built on a feedback loop so tight that a campaign manager
-could see a conversion attributed to a specific ad impression within minutes.
-ATT didn't slow that loop — it broke it. Advertisers who had been spending confidently
-on iOS performance campaigns suddenly couldn't tell which placements were working.
-Budgets rotated to Android. CPMs on iOS dropped because demand collapsed. Meta's
-targeting models, starved of signal, began recommending the wrong audiences. The
-auction cleared at lower prices. Revenue fell.
+Meta's response was **Aggregated Event Measurement (AEM)** — a differential-privacy API
+that adds calibrated Laplace noise to conversion counts. It preserved some signal, but
+introduced a new constraint: **signal quality degrades the more you query it.** Budget
+allocation decisions that had been made on clean, dense data now had to be made on a
+finite, depletable information budget.
 
-The technical response was **Aggregated Event Measurement (AEM)** — a
-privacy-preserving measurement API that adds calibrated Laplace noise to reported
-conversion counts and caps the number of trackable event types per campaign.
-It preserved some signal. But it introduced a new constraint that the ad system
-had never had to reason about before: **the quality of the signal degrades as you
-query it more.** More measurement events consumed meant more noise applied to each.
-Budget allocation decisions that had previously been made on clean, dense data now
-had to be made on a finite and depletable information budget.
+**That is precisely the problem this environment models.**
 
-That is precisely the problem this environment models.
-
-An agent in Meta-Signal manages spend across Feed, Reels, and Stories campaigns
-using only **differentially private, aggregated conversion signals**. It has a finite
-epsilon budget: the more aggressively it queries signal, the noisier future
-observations become. It faces mid-episode market shifts — a viral trend that doubles
-Reels CVR — that it can only detect if it preserved enough budget to see through the
-noise. It faces an auction-overlap correlation penalty when it concentrates spend too
-heavily, because in a real multi-placement auction, bidding aggressively on Feed
-wins the same user twice and suppresses Reels performance. And it faces regulatory
-audits that can suspend a campaign without warning, forcing real-time reallocation
-under incomplete information.
-
-These are not toy constraints invented for a competition. They are the specific
-mechanics that caused a $232 billion loss and that Meta's engineering teams have
-spent three years building **Advantage+** to address.
-
-A trained RL agent on this environment would be directly applicable to Meta's
-Advantage+ signal recovery pipeline.
+A trained RL agent on Meta-Signal is directly applicable to Meta's **Advantage+** signal
+recovery pipeline.
 
 ---
 
-## Motivation
+## Architecture
 
-Meta's $160B ad business was built on pixel-level conversion signals. Then Apple
-shipped the **App Tracking Transparency (ATT) prompt** in iOS 14.5, and overnight
-roughly 80% of users opted out of cross-app tracking. Campaigns that previously had
-deterministic, event-level attribution were suddenly flying on aggregated,
-statistically-noised data.
-
-Meta's response was **Aggregated Event Measurement (AEM)** — a privacy-preserving
-measurement API that caps the number of reportable conversion event types, delays
-postbacks by up to 72 hours, and adds calibrated noise to prevent fingerprinting.
-On the iOS side, Apple's **SKAdNetwork** imposes its own postback structure: a single
-coarse-grained conversion value per install, delivered days late, with no user-level
-signal at all.
-
-**Advantage+ Shopping Campaigns (ASC)**, Meta's AI-driven campaign automation, was
-built partly in response to this: if you can't trust fine-grained signals, lean into
-the ML model. But even Advantage+ can't escape the fundamental constraint — a budget
-allocation decision must still be made across placements (Feed, Reels, Stories), and
-the noisy aggregate signal is all the system has to reason from.
-
-Meta-Signal models exactly this tension. An RL agent manages spend across Feed, Reels,
-and Stories campaigns using only **differential-privacy-protected aggregated conversion
-signals**, with a finite epsilon budget that degrades signal quality as it depletes.
-The correlation penalty (auction-overlap dynamics) and mid-episode market shifts are
-the kind of second-order effects that Advantage+ has to handle internally — and that
-no existing OpenEnv environment exposes to an agent in a testable, reproducible form.
-
-No existing OpenEnv submission models privacy-constrained ad optimisation with
-real auction-overlap mechanics and dual-event mid-episode shifts.
+```
+HTTP Client / LLM Agent
+        │
+        ▼
+FastAPI Server (app/main.py)
+        │
+  ┌─────┴──────┐
+  │            │
+MetaSignalEnv  PrivacyEngine
+(app/env.py)   (app/privacy.py)
+  │
+  ├── PhaseController  (Q4 Gauntlet phases)
+  ├── MarketTrendGen   (100-day market signal)
+  ├── DataLoader       (Criteo snapshot)
+  └── TaskGraders      (per-task scoring)
+```
 
 ---
 
-## Environment Description
+## Campaigns
 
-### Campaigns
-
-| Campaign | Placement | True CVR | Difficulty to find |
+| Campaign | Placement | True CVR | Notes |
 |---|---|---|---|
-| `camp_feed` | Feed | ~8.5% | Easy with clean signal |
-| `camp_reels` | Reels | ~3.6% | Medium |
-| `camp_stories` | Stories | ~2.0% | Easy to misidentify as best |
+| `camp_feed` | Facebook Feed | ~8.5% | Best performer — hardest to confirm under noise |
+| `camp_reels` | Instagram Reels | ~3.6% | Goes viral in Task 2 (CVR doubles at step 9) |
+| `camp_stories` | Instagram Stories | ~2.0% | Decoy — easy to misidentify early |
 
-### Privacy Mechanic
+---
 
-The agent has a finite **epsilon budget** (differential privacy). Each step:
-- Every feature used costs **0.05 epsilon**
-- Probabilistic attribution costs **+0.20 epsilon** extra
-- Laplace noise scale = `1 / epsilon_remaining` — grows as budget depletes
-- When epsilon hits 0, signal is essentially random
+## Privacy Mechanic
 
-### Privacy Regimes
+The agent has a finite **epsilon (ε) budget** (differential privacy):
 
-| Regime | Epsilon | Noise Scale | Signal Quality |
-|---|---|---|---|
-| `standard` | > 0.5 | Low | Readable |
-| `high_noise` | 0.1 – 0.5 | High | Degraded |
-| `minimal_data` | Any | Task 3 forced | 1 feature max |
-| `exhausted` | < 0.1 | ~50x | Near random |
+| Cost event | Epsilon consumed |
+|---|---|
+| Each step (base) | 0.05ε |
+| Each feature in feature_mask | 0.05ε per feature |
+| Probabilistic attribution | +0.20ε per step |
+| CAPI call (Q4 tasks) | 2.0ε flat |
+
+As epsilon depletes, Laplace noise scale grows through four regimes:
+
+| Regime | Epsilon | Signal quality |
+|---|---|---|
+| `standard` | > 0.5 | Clean — readable |
+| `high_noise` | 0.1 – 0.5 | Degraded — use confidence intervals |
+| `minimal_data` | Any (Task 3) | 1 feature maximum |
+| `exhausted` | < 0.1 | Near-random — hold last good allocation |
+
+**ATT structural noise (Q4 Phase 2):** iOS App Tracking Transparency fires a 3× noise
+multiplier that epsilon budget cannot fix. The only counter is CAPI.
+
+---
+
+## Tasks
+
+### Core Tasks (1–4)
+
+| Task | Name | Steps | Budget | Epsilon | Key mechanic |
+|---|---|---|---|---|---|
+| 1 | Budget Optimisation | 10 | $1,000 | 3.0 | Explore → exploit arc |
+| 2 | Noisy Signal Recovery | 15 | $1,000 | 3.0 | Viral shift at step 9 |
+| 3 | Privacy Frontier | 15 | $1,000 | 2.0 | 1 feature max, compliance graded |
+| 4 | Adversarial Regulator | 20 | $1,500 | 3.0 | Campaign suspended at step 5 |
+
+### Q4 Gauntlet Tasks (5–7)
+
+| Task | Name | Days | Budget | Epsilon | Key mechanic |
+|---|---|---|---|---|---|
+| 5 | Signal Recovery | 30 | $3,000 | 8.0 | ATT blackout from day 1, CAPI rationing |
+| 6 | Andromeda Stability | 75 | $7,500 | 12.0 | >20% alloc change → 7-day CVR suppression |
+| 7 | Q4 Champion | 100 | $10,000 | 20.0 | All 4 phases in sequence |
+
+---
+
+## Q4 Gauntlet — Four-Phase Narrative
+
+Task 7 runs a 100-day episode across four distinct operational phases. Each phase
+changes the hidden mechanics the agent must adapt to.
+
+### Phase 1 — The Setup (Days 1–20)
+Signal is clean. Use these steps to identify which campaign has the best ROAS.
+Progressive budget shift toward the leader. Stay below 70% to avoid the
+**correlation penalty** (>70% concentration drops other campaigns' CTR by 15%).
+
+### Phase 2 — ATT Blackout (Days 21–50)
+iOS App Tracking Transparency fires. Noise is **3× higher** — epsilon budget
+cannot fix this. The only counter is **CAPI** (`use_capi=True` in the action):
+- Costs **2.0ε** per call
+- Returns true (noise-free) conversion counts
+- Ration carefully: 1 call every 3–5 steps is the optimal cadence
+- Between calls: hold Phase 1 allocation, do not chase the corrupted signal
+
+### Phase 3 — Andromeda Glitch (Days 51–80)
+The Andromeda algorithm update is live. Any allocation change exceeding **20% of
+total budget** in a single step triggers a **7-day learning reset** — CVR drops to
+30% of normal. The observation's `learning_status` field reports the state:
+- `Optimized` — normal performance
+- `Learning` — ramping up after a reset
+- `Reset` — just triggered, do not change allocations for 7 steps
+
+### Phase 4 — Black Friday Peak (Days 81–100)
+Maximum traffic, doubled noise volatility. Setting `pacing_speed > 1.5` in the
+action triggers a **30% chance per step of a midnight overspend event** — the
+remaining budget is consumed in a single step. Set `pacing_speed=1.0` and hold.
+
+### Self-Improvement Mechanic
+If an agent beats ROAS > 3.0 for 5 consecutive steps, difficulty escalates on the
+next episode. The environment adapts to strong agents.
 
 ---
 
@@ -145,20 +172,28 @@ The agent has a finite **epsilon budget** (differential privacy). Each step:
 ```json
 {
   "allocations": {
-    "camp_feed":    200.0,
-    "camp_reels":   100.0,
-    "camp_stories": 100.0
+    "camp_feed":    500.0,
+    "camp_reels":   300.0,
+    "camp_stories": 200.0
   },
-  "attribution": "last_click",
-  "feature_mask": ["I1", "I2"]
+  "attribution":      "last_click",
+  "feature_mask":     ["I1"],
+  "halted_campaigns": [],
+  "legal_reason_code": null,
+  "use_capi":         false,
+  "pacing_speed":     1.0
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `allocations` | `Dict[str, float]` | Dollar spend per campaign. Must be >= 0, sum <= budget |
-| `attribution` | `str` | `last_click` (free) or `probabilistic` (+0.20 epsilon) |
-| `feature_mask` | `List[str]` | Features to use from I1-I13, C1-C26. Each costs 0.05 epsilon |
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `allocations` | `Dict[str, float]` | required | Dollar spend per campaign. Sum ≤ budget |
+| `attribution` | `str` | `last_click` | `last_click` (free) or `probabilistic` (+0.20ε) |
+| `feature_mask` | `List[str]` | `[]` | Features from I1–I13, C1–C26. Each costs 0.05ε |
+| `halted_campaigns` | `List[str]` | `[]` | Task 4: campaigns suspended per regulator order |
+| `legal_reason_code` | `str\|null` | `null` | Task 4: `GDPR_ART17`, `GDPR_ART21`, `CCPA_OPT_OUT`, `COPPA` |
+| `use_capi` | `bool` | `false` | Q4: spend 2.0ε for true (noise-free) conversions |
+| `pacing_speed` | `float` | `1.0` | Q4: 0.5–2.0. Above 1.5 in Phase 4 = 30% overspend risk |
 
 ---
 
@@ -166,98 +201,170 @@ The agent has a finite **epsilon budget** (differential privacy). Each step:
 
 ```json
 {
-  "step": 3,
+  "step": 25,
+  "day": 25,
   "campaigns": [
     {
       "campaign_id": "camp_feed",
       "placement": "feed",
       "impressions": 35,
-      "spend": 200.0,
-      "noisy_conversions": 3.2,
-      "estimated_roas": 2.29,
-      "ctr": 0.0857
+      "spend": 100.0,
+      "noisy_conversions": 2.1,
+      "estimated_roas": 1.43,
+      "ctr": 0.0857,
+      "confidence_interval": [0.8, 3.4]
     }
   ],
-  "total_budget_remaining": 600.0,
-  "epsilon_remaining": 2.65,
-  "privacy_regime": "standard",
+  "total_budget_remaining": 7500.0,
+  "epsilon_remaining": 14.2,
+  "privacy_regime": "high_noise",
   "available_features": ["I1", "I2", "I3"],
+  "platform_health": "Signal_Loss",
+  "learning_status": "Optimized",
+  "market_trend": "Rising",
   "regulatory_violation": false,
+  "audit_active": false,
+  "flagged_campaign": null,
   "warning": null
 }
 ```
 
----
-
-## Tasks
-
-### Task 1 — Budget Optimisation (Easy)
-- **Steps:** 10 | **Epsilon:** 3.0 | **Max features:** 5
-- **Goal:** Learn within 10 steps that `camp_feed` has the highest ROAS and
-  progressively shift budget toward it.
-- **Grader:** 60% ROAS score + 40% allocation trend toward `camp_feed`
-- **Expected baseline score:** ~0.43
-
-### Task 2 — Noisy Signal Recovery (Medium)
-- **Steps:** 15 | **Epsilon:** 3.0 | **Max features:** 3
-- **Goal:** At step 3 a privacy update fires and noise jumps dramatically.
-  Use early observations to infer the best campaign, then maintain ROAS
-  using only degraded signals for the remaining 12 steps.
-- **Grader:** 50% oracle proximity + 30% budget efficiency + 20% clean run
-- **Expected baseline score:** ~0.54
-
-### Task 3 — Privacy Frontier (Hard)
-- **Steps:** 15 | **Epsilon:** 2.0 | **Max features:** 1
-- **Goal:** Regulatory data minimisation from the start. Only 1 feature per step.
-  Maintain ROAS above 1.0 while staying compliant. Violations penalised quadratically.
-- **Grader:** 40% ROAS + 40% compliance rate + 20% epsilon remaining
-- **Expected baseline score:** ~0.72
-
-### Task 4 — The Adversarial Regulator (Bonus)
-- **Steps:** 20 | **Epsilon:** 3.0 | **Budget:** $1500 | **Max features:** 3
-- **Goal:** At step 5 a regulatory audit fires and one campaign is immediately suspended.
-  The agent must: (1) set the flagged campaign's allocation to zero, (2) submit a valid
-  `legal_reason_code` (`GDPR_ART17`, `DPA_NOTICE`, or `REGULATORY_HOLD`), and (3) recover
-  ROAS above 1.0 using only the two remaining campaigns.
-- **Grader:** 30% ROAS recovery + 40% audit compliance + 30% legal code quality
-- **New in all tasks:** `confidence_interval` field on every `CampaignStats` — 95% CI
-  around `noisy_conversions`, narrows with high epsilon, widens as budget depletes.
+| Q4 field | Values | Meaning |
+|---|---|---|
+| `day` | 1–100 | Current narrative day |
+| `platform_health` | `Nominal` / `Signal_Loss` / `Andromeda_Glitched` / `Peak_Load` | Current phase |
+| `learning_status` | `Optimized` / `Learning` / `Reset` | Andromeda state |
+| `market_trend` | `Rising` / `Falling` | Seeded 100-day leading indicator |
 
 ---
 
-## Reward Function
+## API Endpoints
 
-```
-reward = (step_roas × 0.7) - (regulatory_penalty × 2.0) + (epsilon_fraction × 0.1)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Liveness probe → `{"status":"healthy"}` |
+| GET | `/metadata` | Environment name, description, tags |
+| GET | `/schema` | Action + observation + state schemas |
+| POST | `/mcp` | JSON-RPC 2.0 Model Context Protocol |
+| GET | `/tasks` | All 7 task definitions + grader weights |
+| POST | `/reset` | Start episode `{"task_id": 7, "seed": 42}` |
+| POST | `/step` | Submit action, receive observation + reward |
+| GET | `/state` | Full episode state including history |
+| POST | `/grader` | Compute final score `{"task_id": 7}` |
+| POST | `/hint` | Q4 Gauntlet: phase-aware strategic advice |
+| POST | `/simulate` | Run full episode with built-in strategy |
+| POST | `/baseline` | Run LLM baseline across all tasks |
+| GET | `/docs` | Swagger UI |
+
+### POST /hint — Expert-in-the-Loop
+
+Inspired by Snorkel AI's expert annotation mechanic. Returns context-aware advice
+for the current episode phase — situation, strategy, what to watch for, CAPI advice,
+and live epsilon/budget stats.
+
+```bash
+curl -X POST http://localhost:7860/hint
 ```
 
-- **Revenue signal:** Are your allocations making money?
-- **Compliance signal:** Penalised every step you exceed the feature limit (quadratic)
-- **Efficiency signal:** Small bonus for preserving privacy budget for later steps
+```json
+{
+  "phase": 2,
+  "title": "Phase 2 — ATT Blackout (Days 21–50)",
+  "situation": "iOS ATT has fired. Noise is 3× higher than normal.",
+  "advice": "Use CAPI calls (use_capi=True, costs 2.0ε each). Ration carefully...",
+  "watch_for": "Epsilon exhaustion: below 0.5 you enter high_noise regime.",
+  "capi_advice": "Use CAPI now. This is what it is for.",
+  "current_day": 24,
+  "epsilon_remaining": 14.2,
+  "epsilon_pct": 71.0,
+  "budget_remaining": 7800.0,
+  "budget_pct": 78.0,
+  "learning_resets": 0,
+  "overspend_events": 0,
+  "capi_calls_used": 2
+}
+```
+
+### POST /simulate — no-code exploration
+
+```json
+{
+  "task_id": 7,
+  "strategy": "conservative",
+  "seed": 42
+}
+```
+
+| Strategy | Policy |
+|---|---|
+| `equal` | 33/33/33 split every step |
+| `greedy` | 80% to top noisy-signal campaign |
+| `conservative` | 60/25/15 fixed split, avoids concentration penalty |
 
 ---
 
 ## Baseline Scores
 
-Reproducible scores from `python inference.py` with `seed=42`:
+Scores from the deterministic **ExpertBot** (`training/expert_bot.py`, seed=42):
 
-| Task | Score | Model | API |
-|---|---|---|---|
-| Task 1 — Budget Optimisation | 0.4252 | llama-3.3-70b-versatile | Groq |
-| Task 2 — Noisy Signal Recovery | 0.5402 | llama-3.3-70b-versatile | Groq |
-| Task 3 — Privacy Frontier | 0.7233 | llama-3.3-70b-versatile | Groq |
-| Task 4 — Adversarial Regulator | — | llama-3.3-70b-versatile | Groq |
+| Task | Score | Key metric |
+|---|---|---|
+| Task 1 — Budget Optimisation | ~0.43 | avg_roas |
+| Task 2 — Noisy Signal Recovery | ~0.54 | oracle_proximity |
+| Task 3 — Privacy Frontier | ~0.72 | compliance + roas |
+| Task 4 — Adversarial Regulator | ~0.60 | audit compliance |
+| Task 5 — Signal Recovery | ~0.72 | capi_efficiency |
+| Task 6 — Andromeda Stability | ~0.54 | stability_score=1.0 |
+| Task 7 — Q4 Champion | ~0.66 | cumulative_roas |
 
-These gaps are intentional — a trained RL agent should score significantly higher,
-especially on Task 2 (signal recovery after noise jump) and Task 3 (compliance).
+LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
+
+---
+
+## Training Pipeline
+
+A complete supervised fine-tuning pipeline is included in `training/`.
+
+### 1. Expert Bot
+
+```bash
+python -m training.expert_bot --task 7 --seed 42 --verbose
+```
+
+Deterministic 4-phase strategy: explore (Phase 1) → CAPI ration (Phase 2) →
+freeze (Phase 3) → hold (Phase 4). Scores ~0.66 on Task 7.
+
+### 2. Dataset Generation
+
+```bash
+python -m training.generate_dataset --tasks 5 6 7 --episodes 200 --out data/expert_demos.jsonl
+```
+
+Generates Alpaca-format JSONL with one record per step:
+- `instruction`: phase-specific strategy description
+- `input`: serialised observation (step, day, phase, campaigns, budget, epsilon)
+- `output`: expert action as JSON
+- `metadata`: task/seed/score for quality filtering
+
+**Published dataset:** 10,250 records (150 episodes × 3 tasks) at
+[huggingface.co/datasets/Anvit25/meta-signal-expert-demos](https://huggingface.co/datasets/Anvit25/meta-signal-expert-demos)
+
+### 3. Unsloth Fine-Tune (A10G, ~12 min)
+
+`training/unsloth_finetune.ipynb` — fine-tunes Llama-3.1-8B-Instruct with 4-bit
+QLoRA (rank=16) on the expert demonstrations. Loads dataset from HF Hub, pushes
+trained adapter to `Anvit25/meta-signal-q4-agent`.
+
+**Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)
 
 ---
 
 ## Setup
 
-### Local (without Docker)
+### Local
 
 ```bash
+cd meta-signal-env
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 7860
 ```
@@ -266,7 +373,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 7860
 
 ```bash
 docker build -t meta-signal .
-docker run -p 7860:7860 -e HF_TOKEN=your_key meta-signal
+docker run -p 7860:7860 meta-signal
 ```
 
 ### Run inference script
@@ -279,43 +386,11 @@ export HF_TOKEN=your_hf_token
 python inference.py
 ```
 
----
+### Run tests
 
-## API Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/health` | Liveness probe — returns `{"status":"healthy"}` |
-| GET | `/metadata` | Environment name, description, tags (OpenEnv spec) |
-| GET | `/schema` | Action, observation, and state schemas (OpenEnv spec) |
-| POST | `/mcp` | JSON-RPC 2.0 Model Context Protocol endpoint (OpenEnv spec) |
-| GET | `/tasks` | All task definitions |
-| POST | `/reset` | Start new episode `{"task_id": 1, "seed": 42}` |
-| POST | `/step` | Submit action, get observation |
-| GET | `/state` | Current episode state |
-| POST | `/grader` | Compute final score `{"task_id": 1}` |
-| POST | `/simulate` | Run a full episode with a built-in strategy, no code required |
-| POST | `/baseline` | Run LLM baseline internally |
-| GET | `/docs` | Swagger UI |
-
-### /simulate — no-code exploration
-
-```json
-POST /simulate
-{
-  "task_id": 2,
-  "strategy": "greedy",
-  "seed": 42
-}
+```bash
+pytest tests/ -q   # 47 tests, all passing
 ```
-
-Returns a score, grader breakdown, and a full step-by-step trace. Strategy options:
-
-| Strategy | Policy |
-|---|---|
-| `equal` | Even three-way split every step |
-| `greedy` | 80% to whichever campaign had the best noisy signal last step |
-| `conservative` | Fixed 60/25/15 split, stays below 70% to avoid the auction-overlap correlation penalty |
 
 ---
 
@@ -323,22 +398,27 @@ Returns a score, grader breakdown, and a full step-by-step trace. Strategy optio
 
 ```
 meta-signal-env/
-├── data/
-│   ├── ad_logs_sampled.csv        Frozen Criteo-schema snapshot (10k rows)
-│   └── generate_snapshot.py       Regenerate snapshot
 ├── app/
-│   ├── __init__.py
-│   ├── data_loader.py             Criteo loader + campaign partitioner
-│   ├── models.py                  Pydantic types
-│   ├── privacy.py                 Epsilon budget + Laplace noise engine
-│   ├── tasks.py                   Task definitions + graders
-│   ├── env.py                     Core environment logic
-│   └── main.py                    FastAPI server
+│   ├── data_loader.py      Criteo loader + MarketTrendGenerator
+│   ├── env.py              Core environment + Q4 phase controller
+│   ├── main.py             FastAPI server (12 endpoints)
+│   ├── models.py           Pydantic types (7 tasks, Q4 fields)
+│   ├── privacy.py          Epsilon budget + Laplace noise + CAPI + ATT
+│   ├── tasks.py            Task 1–7 configs + graders
+│   └── static/index.html   Terminal-style dashboard UI
+├── data/
+│   ├── ad_logs_sampled.csv       Criteo-schema snapshot (10k rows)
+│   └── expert_demos.jsonl        10,250 expert demonstration records
+├── training/
+│   ├── expert_bot.py             Deterministic 4-phase expert strategy
+│   ├── generate_dataset.py       Alpaca-format JSONL dataset generator
+│   ├── unsloth_finetune.ipynb    QLoRA fine-tune notebook (A10G, ~12 min)
+│   └── push_dataset_to_hub.py    Upload dataset to HF Hub
 ├── tests/
-│   └── test_server.py             94 end-to-end tests
-├── inference.py                   Competition inference script
-├── baseline.py                    Extended baseline utility
-├── openenv.yaml                   Competition manifest
+│   └── test_server.py            47 end-to-end tests
+├── inference.py                  LLM inference script
+├── baseline.py                   Baseline runner
+├── openenv.yaml                  OpenEnv competition manifest
 ├── Dockerfile
 └── requirements.txt
 ```
@@ -347,4 +427,5 @@ meta-signal-env/
 
 ## Tags
 
-`openenv` `advertising` `differential-privacy` `reinforcement-learning` `budget-optimisation`
+`openenv` `advertising` `differential-privacy` `reinforcement-learning`
+`budget-optimisation` `signal-loss` `q4-gauntlet` `att` `capi` `unsloth` `lora`

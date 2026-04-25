@@ -1,31 +1,43 @@
 name: meta-signal
-display_name: "Meta-Signal: Privacy-Constrained Ad Optimisation"
-version: "1.0.0"
+display_name: "Meta-Signal: Privacy-Constrained Ad Budget Optimisation"
+version: "2.0.0"
 description: |
-  An RL environment where an AI agent allocates advertising budget across three
-  campaigns but can only observe noisy, aggregated conversion data -- exactly
-  how Meta's real ad system works after signal loss.
-  Models differential privacy budget depletion, mid-episode regime changes,
-  correlation penalties, market-shift events, and regulatory audit mechanics.
+  An OpenEnv-compliant RL environment where an AI agent manages advertising
+  budget across three campaigns but can only observe noisy, aggregated conversion
+  data -- exactly how Meta's real ad system works after iOS signal loss.
+  Includes the Q4 Gauntlet: a 100-day narrative episode across four operational
+  phases (ATT Blackout, Andromeda algorithm update, Black Friday peak load).
+  Full differential-privacy epsilon budget, CAPI integration, market trend
+  signals, and a self-improvement mechanic that raises difficulty when the agent
+  exceeds ROAS > 3.0 for five consecutive steps.
 
 author: Anvit2512
 tags:
+  - openenv
   - advertising
   - differential-privacy
   - reinforcement-learning
   - budget-optimisation
   - signal-loss
+  - q4-gauntlet
+  - att
+  - capi
 
 server:
   port: 7860
   health_endpoint: /health
 
 endpoints:
+  health:   GET  /health
+  metadata: GET  /metadata
+  schema:   GET  /schema
+  mcp:      POST /mcp
   tasks:    GET  /tasks
   reset:    POST /reset
   step:     POST /step
   state:    GET  /state
   grader:   POST /grader
+  hint:     POST /hint
   simulate: POST /simulate
   baseline: POST /baseline
 
@@ -70,6 +82,36 @@ tasks:
     initial_budget: 1500.0
     note: "Regulatory audit fires at step 5; one campaign suspended mid-episode"
 
+  - id: 5
+    name: "Signal Recovery"
+    difficulty: hard
+    max_steps: 30
+    target_roas: 1.5
+    max_features: 3
+    initial_epsilon: 8.0
+    initial_budget: 3000.0
+    note: "Q4 Phase 2 -- ATT blackout from day 1; CAPI rationing is key mechanic"
+
+  - id: 6
+    name: "Andromeda Stability"
+    difficulty: expert
+    max_steps: 75
+    target_roas: 1.5
+    max_features: 3
+    initial_epsilon: 12.0
+    initial_budget: 7500.0
+    note: "Q4 Phase 3 -- >20% allocation change triggers 7-day CVR suppression to 30%"
+
+  - id: 7
+    name: "Q4 Champion"
+    difficulty: expert
+    max_steps: 100
+    target_roas: 2.0
+    max_features: 5
+    initial_epsilon: 20.0
+    initial_budget: 10000.0
+    note: "All 4 phases in sequence: Setup -> ATT Blackout -> Andromeda -> Black Friday"
+
 scoring:
   min: 0.0
   max: 1.0
@@ -81,7 +123,7 @@ action_schema:
   properties:
     allocations:
       type: object
-      description: "Dollar amount to spend per campaign. Keys: camp_feed, camp_reels, camp_stories"
+      description: "Dollar amount to spend per campaign. Keys: camp_feed, camp_reels, camp_stories. Sum must not exceed budget."
       additionalProperties:
         type: number
         minimum: 0
@@ -104,15 +146,28 @@ action_schema:
       type: string
       nullable: true
       description: "Task 4: GDPR_ART17 | GDPR_ART21 | CCPA_OPT_OUT | COPPA"
+    use_capi:
+      type: boolean
+      default: false
+      description: "Q4 tasks: spend 2.0 epsilon to receive true (noise-free) conversion counts via CAPI"
+    pacing_speed:
+      type: number
+      minimum: 0.5
+      maximum: 2.0
+      default: 1.0
+      description: "Q4 Phase 4: above 1.5 triggers 30% chance of catastrophic budget dump per step"
 
 observation_schema:
   type: object
   properties:
     step:
       type: integer
+    day:
+      type: integer
+      description: "Q4: current narrative day (1-100)"
     campaigns:
       type: array
-      description: "Per-campaign noisy stats (list, indexed by campaign_id)"
+      description: "Per-campaign noisy stats"
       items:
         type: object
         properties:
@@ -136,6 +191,18 @@ observation_schema:
     available_features:
       type: array
       items: { type: string }
+    platform_health:
+      type: string
+      enum: [Nominal, Signal_Loss, Andromeda_Glitched, Peak_Load]
+      description: "Q4: current operational phase"
+    learning_status:
+      type: string
+      enum: [Optimized, Learning, Reset]
+      description: "Q4 Phase 3: Andromeda algorithm state"
+    market_trend:
+      type: string
+      enum: [Rising, Falling]
+      description: "Q4: seeded 100-day leading market indicator"
     regulatory_violation:
       type: boolean
     audit_active:

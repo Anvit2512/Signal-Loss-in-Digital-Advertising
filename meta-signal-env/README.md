@@ -319,6 +319,23 @@ Scores from the deterministic **ExpertBot** (`training/expert_bot.py`, seed=42):
 
 LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
+## Fine-Tuned Model Evaluation
+
+`training/evaluate_finetuned.ipynb` — 9 episodes (3 seeds × Tasks 5/6/7) against the live environment.
+
+| Task | ExpertBot | Fine-tuned (avg) | Delta | Seeds |
+|---|---|---|---|---|
+| Task 5 — Signal Recovery | 0.716 | 0.644 | -0.072 | 0.716 / 0.721 / 0.494 |
+| Task 6 — Andromeda Stability | 0.542 | 0.541 | -0.002 | 0.542 / 0.550 / 0.530 |
+| Task 7 — Q4 Champion | 0.663 | 0.663 | -0.000 | 0.663 / 0.663 / 0.663 |
+| **Average** | **0.640** | **0.616** | **-0.025** | |
+
+Key findings:
+- **Task 7 (100 steps, 4 phases):** Three identical scores of 0.663 — the model perfectly replicates the ExpertBot's 4-phase strategy across all seeds
+- **Task 6 (Andromeda):** Statistically tied (-0.2%) — freeze mechanic fully learned
+- **Task 5 (ATT Blackout):** High variance — seeds 42 and 123 beat the baseline (0.716, 0.721) but seed 456 underperforms (0.494), pulling the average down
+- **Overall: 3.8% below ExpertBot** — strong result for a model trained from demonstrations against a hand-coded expert with perfect phase knowledge
+
 ---
 
 ## Training Pipeline
@@ -349,7 +366,7 @@ Generates Alpaca-format JSONL with one record per step:
 **Published dataset:** 10,250 records (150 episodes × 3 tasks) at
 [huggingface.co/datasets/Anvit25/meta-signal-expert-demos](https://huggingface.co/datasets/Anvit25/meta-signal-expert-demos)
 
-### 3. Unsloth Fine-Tune (A10G, ~12 min)
+### 3. Unsloth Fine-Tune (A10G, ~123 min)
 
 `training/unsloth_finetune.ipynb` — fine-tunes Llama-3.1-8B-Instruct with 4-bit
 QLoRA (rank=16) on the expert demonstrations. Loads dataset from HF Hub, pushes

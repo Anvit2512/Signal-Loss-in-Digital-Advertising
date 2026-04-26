@@ -327,7 +327,7 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ![Meta-Signal Results](results/meta-signal-results.png)
 
-*Left: ExpertBot baseline across all 7 tasks. Right: Reward improvement — Equal-split baseline → ExpertBot → Fine-tuned Llama-3.1-8B on Q4 Gauntlet tasks (3 seeds each).*
+*Left: ExpertBot baseline across all 7 tasks. Right: Reward improvement — Base model (no fine-tuning) → ExpertBot → Fine-tuned Llama-3.1-8B on Q4 Gauntlet tasks (3 seeds each).*
 
 ---
 
@@ -337,17 +337,17 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ### Reward Improvement
 
-| Task | Equal Baseline | ExpertBot | Fine-tuned (avg) | Delta vs Expert | Seeds |
+| Task | Base Model | ExpertBot | Fine-tuned (avg) | Delta vs Expert | Seeds |
 |---|---|---|---|---|---|
-| Task 5 — Signal Recovery | 0.482 | 0.800 | 0.800 | +0.000 | 0.800 / 0.800 / 0.800 |
-| Task 6 — Andromeda Stability | 0.909 | 0.864 | **0.949** | **+0.085** | 0.950 / 0.949 / 0.948 |
-| Task 7 — Q4 Champion | 0.850 | 0.850 | 0.850 | +0.000 | 0.850 / 0.850 / 0.850 |
-| **Average** | **0.747** | **0.838** | **0.866** | **+0.028** | |
+| Task 5 — Signal Recovery | 0.479 | 0.800 | 0.800 | +0.000 | 0.800 / 0.800 / 0.800 |
+| Task 6 — Andromeda Stability | 0.522 | 0.864 | **0.949** | **+0.085** | 0.950 / 0.949 / 0.948 |
+| Task 7 — Q4 Champion | 0.545 | 0.850 | 0.850 | +0.000 | 0.850 / 0.850 / 0.850 |
+| **Average** | **0.515** | **0.838** | **0.866** | **+0.028** | |
 
 Key findings:
-- **Task 5:** Fine-tuned model scores **+65% above the equal-split baseline** (0.800 vs 0.482) — CAPI rationing strategy fully learned
-- **Task 6 (Andromeda Stability):** Fine-tuned model **beats ExpertBot by +8.5 points** (0.949 vs 0.864) — learned a superior freeze strategy that outperforms the hand-coded expert
-- **Tasks 5 & 7:** Perfect match with ExpertBot across all 3 seeds — zero variance, deterministic policy fully learned
+- **Task 5:** Fine-tuned model scores **+67% above the base model** (0.800 vs 0.479) — CAPI rationing strategy fully learned
+- **Task 6:** Fine-tuned model scores **+82% above the base model** (0.949 vs 0.522) and **beats ExpertBot by +8.5 points** — learned a superior freeze strategy
+- **Task 7:** Fine-tuned model scores **+56% above the base model** (0.850 vs 0.545) — 4-phase strategy fully learned
 - **Overall: fine-tuned model beats ExpertBot by +3.3%** on the Q4 Gauntlet
 - Training: 1 epoch on ~41k expert demos, loss 0.1080, 2,563 steps (~166 min on A10G)
 

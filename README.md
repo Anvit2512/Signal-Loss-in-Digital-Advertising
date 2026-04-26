@@ -327,7 +327,7 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ![Meta-Signal Results](meta-signal-env/results/meta-signal-results.png)
 
-*Left: ExpertBot baseline across all 7 tasks. Right: Fine-tuned Llama-3.1-8B vs ExpertBot on Q4 Gauntlet tasks (3 seeds each).*
+*Left: ExpertBot baseline across all 7 tasks. Right: Reward improvement — Equal-split baseline → ExpertBot → Fine-tuned Llama-3.1-8B on Q4 Gauntlet tasks (3 seeds each).*
 
 ---
 
@@ -335,18 +335,21 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 `training/evaluate_finetuned.ipynb` — 9 episodes (3 seeds × Tasks 5/6/7) against the live environment.
 
-| Task | ExpertBot | Fine-tuned (avg) | Delta | Seeds |
-|---|---|---|---|---|
-| Task 5 — Signal Recovery | 0.800 | 0.800 | +0.000 | 0.800 / 0.800 / 0.800 |
-| Task 6 — Andromeda Stability | 0.864 | **0.949** | **+0.085** | 0.950 / 0.949 / 0.948 |
-| Task 7 — Q4 Champion | 0.850 | 0.850 | +0.000 | 0.850 / 0.850 / 0.850 |
-| **Average** | **0.838** | **0.866** | **+0.028** | |
+### Reward Improvement
+
+| Task | Equal Baseline | ExpertBot | Fine-tuned (avg) | Delta vs Expert | Seeds |
+|---|---|---|---|---|---|
+| Task 5 — Signal Recovery | 0.482 | 0.800 | 0.800 | +0.000 | 0.800 / 0.800 / 0.800 |
+| Task 6 — Andromeda Stability | 0.909 | 0.864 | **0.949** | **+0.085** | 0.950 / 0.949 / 0.948 |
+| Task 7 — Q4 Champion | 0.850 | 0.850 | 0.850 | +0.000 | 0.850 / 0.850 / 0.850 |
+| **Average** | **0.747** | **0.838** | **0.866** | **+0.028** | |
 
 Key findings:
+- **Task 5:** Fine-tuned model scores **+65% above the equal-split baseline** (0.800 vs 0.482) — CAPI rationing strategy fully learned
 - **Task 6 (Andromeda Stability):** Fine-tuned model **beats ExpertBot by +8.5 points** (0.949 vs 0.864) — learned a superior freeze strategy that outperforms the hand-coded expert
 - **Tasks 5 & 7:** Perfect match with ExpertBot across all 3 seeds — zero variance, deterministic policy fully learned
 - **Overall: fine-tuned model beats ExpertBot by +3.3%** on the Q4 Gauntlet
-- Training: 1 epoch on regenerated expert demos, loss 0.1080, 2,563 steps (~166 min on A10G)
+- Training: 1 epoch on ~41k expert demos, loss 0.1080, 2,563 steps (~166 min on A10G)
 
 ---
 
@@ -361,7 +364,7 @@ python -m training.expert_bot --task 7 --seed 42 --verbose
 ```
 
 Deterministic 4-phase strategy: explore (Phase 1) → CAPI ration (Phase 2) →
-freeze (Phase 3) → hold (Phase 4). Scores ~0.66 on Task 7.
+freeze (Phase 3) → hold (Phase 4). Scores ~0.85 on Task 7.
 
 ### 2. Dataset Generation
 
@@ -375,18 +378,18 @@ Generates Alpaca-format JSONL with one record per step:
 - `output`: expert action as JSON
 - `metadata`: task/seed/score for quality filtering
 
-**Published dataset:** 10,250 records (150 episodes × 3 tasks) at
+**Published dataset:** ~41,000 records (200 episodes × 3 tasks) at
 [huggingface.co/datasets/Anvit25/meta-signal-expert-demos](https://huggingface.co/datasets/Anvit25/meta-signal-expert-demos)
 
-### 3. Unsloth Fine-Tune (A10G, ~123 min)
+### 3. Unsloth Fine-Tune (A10G, ~166 min)
 
 `training/unsloth_finetune.ipynb` — fine-tunes Llama-3.1-8B-Instruct with 4-bit
 QLoRA (rank=16) on the expert demonstrations. Loads dataset from HF Hub, pushes
 trained adapter to `Anvit25/meta-signal-q4-agent`.
 
-**Actual training stats (A10G Small, 10,250 records, 3 epochs):**
-- Loss: 0.1083 — model correctly learns CAPI rationing, freeze, and hold strategies
-- Runtime: ~123 min (1,923 steps with sequence packing at max_seq_len=2048)
+**Actual training stats (A10G Small, ~41k records, 1 epoch):**
+- Loss: 0.1080 — model correctly learns CAPI rationing, freeze, and hold strategies
+- Runtime: ~166 min (2,563 steps with sequence packing at max_seq_len=2048)
 - Inference validation: correctly sets `use_capi=true` for Phase 2 without explicit instruction
 
 **Trained model:** [huggingface.co/Anvit25/meta-signal-q4-agent](https://huggingface.co/Anvit25/meta-signal-q4-agent)

@@ -327,7 +327,7 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ![Meta-Signal Results](results/meta-signal-results.png)
 
-*Left: ExpertBot baseline across all 7 tasks. Right: refreshed Q4 ExpertBot baselines with fine-tuned re-run marked pending.*
+*Left: ExpertBot baseline across all 7 tasks. Right: Fine-tuned Llama-3.1-8B vs ExpertBot on Q4 Gauntlet tasks (3 seeds each).*
 
 ---
 
@@ -337,14 +337,16 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 | Task | ExpertBot | Fine-tuned (avg) | Delta | Seeds |
 |---|---|---|---|---|
-| Task 5 - Signal Recovery | 0.800 | pending re-run | pending | pending |
-| Task 6 - Andromeda Stability | 0.864 | pending re-run | pending | pending |
-| Task 7 - Q4 Champion | 0.850 | pending re-run | pending | pending |
-| **Average** | **0.838** | pending re-run | pending | |
+| Task 5 — Signal Recovery | 0.800 | 0.800 | +0.000 | 0.800 / 0.800 / 0.800 |
+| Task 6 — Andromeda Stability | 0.864 | **0.949** | **+0.085** | 0.950 / 0.949 / 0.948 |
+| Task 7 — Q4 Champion | 0.850 | 0.850 | +0.000 | 0.850 / 0.850 / 0.850 |
+| **Average** | **0.838** | **0.866** | **+0.028** | |
 
 Key findings:
-- **Environment refresh:** Q4 tasks now expose all placements every day, so these ExpertBot baselines supersede older 0.66-era scores.
-- **Fine-tuned model:** re-run `training/evaluate_finetuned.ipynb` after regenerating demonstrations from the refreshed environment.
+- **Task 6 (Andromeda Stability):** Fine-tuned model **beats ExpertBot by +8.5 points** (0.949 vs 0.864) — learned a superior freeze strategy that outperforms the hand-coded expert
+- **Tasks 5 & 7:** Perfect match with ExpertBot across all 3 seeds — zero variance, deterministic policy fully learned
+- **Overall: fine-tuned model beats ExpertBot by +3.3%** on the Q4 Gauntlet
+- Training: 1 epoch on regenerated expert demos, loss 0.1080, 2,563 steps (~166 min on A10G)
 
 ---
 

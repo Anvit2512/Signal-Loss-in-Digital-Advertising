@@ -322,7 +322,7 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ## Results
 
-![Meta-Signal Results](results/meta-signal-results.png)
+![Meta-Signal Results](meta-signal-env/results/meta-signal-results.png)
 
 *Left: ExpertBot baseline across all 7 tasks. Right: Fine-tuned Llama-3.1-8B vs ExpertBot on Q4 Gauntlet tasks (3 seeds each, dots show individual seeds).*
 

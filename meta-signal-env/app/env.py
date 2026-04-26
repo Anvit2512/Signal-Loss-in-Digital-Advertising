@@ -172,6 +172,7 @@ class MetaSignalEnv:
             self._current_phase          = 1
             self._learning_reset_countdown = 0
             self._episode_rng            = np.random.default_rng(noise_seed)
+            self._privacy.set_adaptive_difficulty(self._difficulty_level)
         else:
             self._market_trend           = None
             self._current_phase          = 0
@@ -205,9 +206,26 @@ class MetaSignalEnv:
         cfg = get_task_config(self._state.task_id)
 
         # --- 1. Clip allocations to remaining budget ---
+        is_q4 = self._state.task_id in Q4_TASKS
+
         allocations = self._clip_allocations(
             action.allocations, self._state.budget_remaining
         )
+
+        # Q4: pacing_speed controls how aggressively the requested spend is
+        # delivered. The safety cap prevents the Phase 4 bug by limiting
+        # effective pacing, at the cost of throttling peak delivery.
+        if is_q4:
+            effective_pacing = action.pacing_speed
+            if self._current_phase == 4 and action.apply_safety_cap:
+                effective_pacing = min(effective_pacing, OVERSPEND_THRESHOLD)
+            if effective_pacing != 1.0:
+                allocations = {
+                    c: v * effective_pacing for c, v in allocations.items()
+                }
+                allocations = self._clip_allocations(
+                    allocations, self._state.budget_remaining
+                )
 
         # Task 4: enforce zero spend on flagged campaign once audit has fired
         audit_already_fired = (
@@ -218,12 +236,16 @@ class MetaSignalEnv:
             allocations[self._state.flagged_campaign] = 0.0
 
         # Q4: Andromeda glitch check (Phase 3) — before appending to history
-        is_q4 = self._state.task_id in Q4_TASKS
         if is_q4 and self._current_phase == 3 and self._alloc_history:
             self._check_andromeda_glitch(allocations, cfg.initial_budget)
 
         # Q4: overspend bug (Phase 4)
-        if is_q4 and self._current_phase == 4 and action.pacing_speed > OVERSPEND_THRESHOLD:
+        if (
+            is_q4
+            and self._current_phase == 4
+            and action.pacing_speed > OVERSPEND_THRESHOLD
+            and not action.apply_safety_cap
+        ):
             assert self._episode_rng is not None
             if float(self._episode_rng.random()) < OVERSPEND_PROB:
                 allocations = {
@@ -250,7 +272,12 @@ class MetaSignalEnv:
         true_conversions: Dict[str, int] = {}
         impressions:      Dict[str, int] = {}
         for camp in CAMPAIGN_NAMES:
-            labels = self._snapshot.campaign_labels(camp, row_start, ROWS_PER_STEP)
+            if is_q4:
+                labels = self._snapshot.campaign_window_labels(
+                    camp, row_start, ROWS_PER_STEP
+                )
+            else:
+                labels = self._snapshot.campaign_labels(camp, row_start, ROWS_PER_STEP)
             true_conversions[camp] = int(labels.sum())
             impressions[camp]      = len(labels)
 
@@ -299,8 +326,12 @@ class MetaSignalEnv:
                         true_cvr[c] = true_cvr[c] * 0.85
                         true_conversions[c] = int(true_conversions[c] * 0.85)
 
+        revenue_multiplier = ROAS_MULTIPLIER
+        if is_q4 and self._current_phase == 4 and action.apply_safety_cap:
+            revenue_multiplier *= 0.95
+
         revenue: Dict[str, float] = {
-            c: allocations.get(c, 0.0) * true_cvr[c] * ROAS_MULTIPLIER
+            c: allocations.get(c, 0.0) * true_cvr[c] * revenue_multiplier
             for c in CAMPAIGN_NAMES
         }
         total_revenue = sum(revenue.values())
@@ -550,7 +581,7 @@ class MetaSignalEnv:
 
         elif old_phase == 3 and new_phase == 4:
             # Black Friday: noise volatility doubles via Task2-style multiplier
-            self._privacy.force_high_noise()   # reuses 8x multiplier from existing method
+            self._privacy.force_high_noise(PHASE4_NOISE_MULT)
 
     def _get_platform_health(self) -> PlatformHealth:
         if self._current_phase == 0:
@@ -584,18 +615,19 @@ class MetaSignalEnv:
 
     def _self_improve(self, task_id: int) -> None:
         """
-        After episode ends: if the agent beat ROAS_THRESHOLD for
-        SELF_IMPROVE_STREAK consecutive steps, escalate difficulty next episode.
+        After episode ends: if the agent beat SELF_IMPROVE_ROAS for
+        SELF_IMPROVE_STREAK consecutive steps anywhere in the episode, escalate
+        difficulty next episode.
         Difficulty increases the base noise multiplier on the next reset.
         """
         if self._state is None or not self._state.history:
             return
-        recent = self._state.history[-SELF_IMPROVE_STREAK:]
-        if (
-            len(recent) == SELF_IMPROVE_STREAK
-            and all(r.info.step_roas > SELF_IMPROVE_ROAS for r in recent)
-        ):
-            self._difficulty_level = min(self._difficulty_level + 1, 5)
+        roas_values = [r.info.step_roas for r in self._state.history]
+        for idx in range(0, len(roas_values) - SELF_IMPROVE_STREAK + 1):
+            window = roas_values[idx:idx + SELF_IMPROVE_STREAK]
+            if all(v > SELF_IMPROVE_ROAS for v in window):
+                self._difficulty_level = min(self._difficulty_level + 1, 5)
+                break
 
     # ------------------------------------------------------------------
 

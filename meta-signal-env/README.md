@@ -182,8 +182,9 @@ next episode. The environment adapts to strong agents.
   "feature_mask":     ["I1"],
   "halted_campaigns": [],
   "legal_reason_code": null,
-  "use_capi":         false,
-  "pacing_speed":     1.0
+  "use_capi": false,
+  "pacing_speed": 1.0,
+  "apply_safety_cap": true
 }
 ```
 
@@ -196,6 +197,7 @@ next episode. The environment adapts to strong agents.
 | `legal_reason_code` | `str\|null` | `null` | Task 4: `GDPR_ART17`, `GDPR_ART21`, `CCPA_OPT_OUT`, `COPPA` |
 | `use_capi` | `bool` | `false` | Q4: spend 2.0ε for true (noise-free) conversions |
 | `pacing_speed` | `float` | `1.0` | Q4: 0.5–2.0. Above 1.5 in Phase 4 = 30% overspend risk |
+| `apply_safety_cap` | `bool` | `true` | Q4: prevents the Phase 4 overspend bug by capping aggressive pacing |
 
 ---
 
@@ -315,9 +317,9 @@ Scores from the deterministic **ExpertBot** (`training/expert_bot.py`, seed=42):
 | Task 2 — Noisy Signal Recovery | ~0.54 | oracle_proximity |
 | Task 3 — Privacy Frontier | ~0.72 | compliance + roas |
 | Task 4 — Adversarial Regulator | ~0.60 | audit compliance |
-| Task 5 — Signal Recovery | ~0.72 | capi_efficiency |
-| Task 6 — Andromeda Stability | ~0.54 | stability_score=1.0 |
-| Task 7 — Q4 Champion | ~0.66 | cumulative_roas |
+| Task 5 - Signal Recovery | ~0.80 | capi_efficiency |
+| Task 6 - Andromeda Stability | ~0.86 | stability_score=1.0 |
+| Task 7 - Q4 Champion | ~0.85 | cumulative_roas |
 
 LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
@@ -325,7 +327,7 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 ![Meta-Signal Results](results/meta-signal-results.png)
 
-*Left: ExpertBot baseline across all 7 tasks. Right: Fine-tuned Llama-3.1-8B vs ExpertBot on Q4 Gauntlet tasks (3 seeds each, dots show individual seeds).*
+*Left: ExpertBot baseline across all 7 tasks. Right: refreshed Q4 ExpertBot baselines with fine-tuned re-run marked pending.*
 
 ---
 
@@ -335,16 +337,14 @@ LLM baseline (llama-3.3-70b-versatile via Groq, Tasks 1–3): 0.43 / 0.54 / 0.72
 
 | Task | ExpertBot | Fine-tuned (avg) | Delta | Seeds |
 |---|---|---|---|---|
-| Task 5 — Signal Recovery | 0.716 | 0.644 | -0.072 | 0.716 / 0.721 / 0.494 |
-| Task 6 — Andromeda Stability | 0.542 | 0.541 | -0.002 | 0.542 / 0.550 / 0.530 |
-| Task 7 — Q4 Champion | 0.663 | 0.663 | -0.000 | 0.663 / 0.663 / 0.663 |
-| **Average** | **0.640** | **0.616** | **-0.025** | |
+| Task 5 - Signal Recovery | 0.800 | pending re-run | pending | pending |
+| Task 6 - Andromeda Stability | 0.864 | pending re-run | pending | pending |
+| Task 7 - Q4 Champion | 0.850 | pending re-run | pending | pending |
+| **Average** | **0.838** | pending re-run | pending | |
 
 Key findings:
-- **Task 7 (100 steps, 4 phases):** Three identical scores of 0.663 — the model perfectly replicates the ExpertBot's 4-phase strategy across all seeds
-- **Task 6 (Andromeda):** Statistically tied (-0.2%) — freeze mechanic fully learned
-- **Task 5 (ATT Blackout):** High variance — seeds 42 and 123 beat the baseline (0.716, 0.721) but seed 456 underperforms (0.494), pulling the average down
-- **Overall: 3.8% below ExpertBot** — strong result for a model trained from demonstrations against a hand-coded expert with perfect phase knowledge
+- **Environment refresh:** Q4 tasks now expose all placements every day, so these ExpertBot baselines supersede older 0.66-era scores.
+- **Fine-tuned model:** re-run `training/evaluate_finetuned.ipynb` after regenerating demonstrations from the refreshed environment.
 
 ---
 

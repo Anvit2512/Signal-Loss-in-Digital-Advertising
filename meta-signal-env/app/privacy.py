@@ -80,6 +80,7 @@ class PrivacyEngine:
         self._rng              = np.random.default_rng(seed)
         self._noise_multiplier = 1.0   # Task 2: jumps to 8x at step 3
         self._att_multiplier   = 1.0   # Q4 Phase 2: structural ATT signal loss (epsilon can't fix this)
+        self._adaptive_multiplier = 1.0 # Q4 self-improvement: regulator tightens noise after strong episodes
         self._capi_calls       = 0     # Q4: number of CAPI calls made this episode
 
         # Audit trail -- list of (feature_count, attribution, cost) per step
@@ -123,7 +124,13 @@ class PrivacyEngine:
         Clipped at a maximum of 50.
         """
         eps = max(self._epsilon, 1e-6)
-        return min((SENSITIVITY / eps) * self._noise_multiplier * self._att_multiplier, 50.0)
+        return min(
+            (SENSITIVITY / eps)
+            * self._noise_multiplier
+            * self._att_multiplier
+            * self._adaptive_multiplier,
+            50.0,
+        )
 
     @property
     def capi_calls(self) -> int:
@@ -181,13 +188,13 @@ class PrivacyEngine:
         noise = self._rng.laplace(loc=0.0, scale=self.noise_scale)
         return true_count + noise
 
-    def force_high_noise(self) -> None:
+    def force_high_noise(self, multiplier: float = 8.0) -> None:
         """
         Triggered by Task 2 at step 3 -- multiplies noise scale by 8x
         without draining epsilon, so budget_efficiency stays non-zero.
         Used only by the environment, not by the agent.
         """
-        self._noise_multiplier = 8.0
+        self._noise_multiplier = multiplier
 
     def force_att_loss(self, multiplier: float = 3.0) -> None:
         """
@@ -202,6 +209,15 @@ class PrivacyEngine:
     def clear_att_loss(self) -> None:
         """Q4 Phase 3+: ATT multiplier returns to 1.0 as new measurement systems stabilise."""
         self._att_multiplier = 1.0
+
+    def set_adaptive_difficulty(self, level: int) -> None:
+        """
+        Q4 Theme 4: increase observation noise after the agent repeatedly wins.
+
+        Each level adds 25% more noise, capped by the environment at level 5.
+        The level is held by MetaSignalEnv across resets for one server process.
+        """
+        self._adaptive_multiplier = 1.0 + max(0, level) * 0.25
 
     def available_features(self) -> List[str]:
         """
@@ -239,6 +255,7 @@ class PrivacyEngine:
         self._epsilon          = self._initial_epsilon
         self._noise_multiplier = 1.0
         self._att_multiplier   = 1.0
+        self._adaptive_multiplier = 1.0
         self._capi_calls       = 0
         self._audit.clear()
         self._rng = np.random.default_rng(seed)

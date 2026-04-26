@@ -133,6 +133,23 @@ def schema() -> dict:
                     "nullable": True,
                     "description": "Task 4: GDPR_ART17 | GDPR_ART21 | CCPA_OPT_OUT | COPPA",
                 },
+                "use_capi": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Q4 tasks: spend 2.0 epsilon for clean CAPI conversion signal",
+                },
+                "pacing_speed": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 2.0,
+                    "default": 1.0,
+                    "description": "Q4 tasks: delivery pacing multiplier; >1.5 risks Phase 4 overspend without safety cap",
+                },
+                "apply_safety_cap": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Q4 Phase 4: caps aggressive pacing to prevent the midnight overspend bug",
+                },
             },
         },
         "observation": {
@@ -159,6 +176,19 @@ def schema() -> dict:
                 "epsilon_remaining": {"type": "number"},
                 "privacy_regime": {"type": "string", "enum": ["standard", "high_noise", "minimal_data", "exhausted"]},
                 "available_features": {"type": "array", "items": {"type": "string"}},
+                "day": {"type": "integer"},
+                "platform_health": {
+                    "type": "string",
+                    "enum": ["Nominal", "Signal_Loss", "Andromeda_Glitched", "Peak_Load"],
+                },
+                "learning_status": {
+                    "type": "string",
+                    "enum": ["Optimized", "Learning", "Reset"],
+                },
+                "market_trend": {
+                    "type": "string",
+                    "enum": ["Rising", "Falling"],
+                },
                 "regulatory_violation": {"type": "boolean"},
                 "audit_active": {"type": "boolean"},
                 "flagged_campaign": {"type": "string", "nullable": True},

@@ -194,6 +194,13 @@ class Action(BaseModel):
             "Ration carefully — exhausting epsilon early means flying blind in Phase 4."
         ),
     )
+    apply_safety_cap:   bool           = Field(
+        default=True,
+        description=(
+            "Q4 Phase 4: prevents the midnight overspend bug when pacing_speed is "
+            "aggressive, but caps effective pacing at 1.5."
+        ),
+    )
 
     @model_validator(mode="after")
     def allocations_non_negative(self) -> "Action":

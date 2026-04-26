@@ -102,6 +102,33 @@ class CriteoSnapshot:
             return np.array([], dtype=np.int32)
         return self._labels[effective_start:effective_end].copy()
 
+    def campaign_window_labels(
+        self,
+        campaign: str,
+        local_start: int,
+        n_rows: int,
+    ) -> np.ndarray:
+        """
+        Return a wrapped window of labels from one campaign band.
+
+        Unlike campaign_labels(), this is local to the campaign and wraps inside
+        that campaign's own band. Q4 Gauntlet uses it so Feed, Reels, and Stories
+        all produce observations on every simulated day instead of appearing only
+        when the global row pointer happens to pass through their fixed bands.
+        """
+        if campaign not in CAMPAIGN_BANDS:
+            raise ValueError(f"Unknown campaign '{campaign}'. "
+                             f"Choose from {CAMPAIGN_NAMES}")
+
+        band_start, band_end = CAMPAIGN_BANDS[campaign]
+        band_labels = self._labels[band_start:band_end]
+        band_len = len(band_labels)
+        if band_len == 0 or n_rows <= 0:
+            return np.array([], dtype=np.int32)
+
+        idx = (local_start + np.arange(n_rows)) % band_len
+        return band_labels[idx].astype(np.int32, copy=True)
+
     def true_cvr(self, campaign: str) -> float:
         """Oracle CVR for a campaign — used only by graders, never the agent."""
         band_start, band_end = CAMPAIGN_BANDS[campaign]

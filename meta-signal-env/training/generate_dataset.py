@@ -109,6 +109,7 @@ def _action_to_text(action: Action) -> str:
         "feature_mask": action.feature_mask,
         "use_capi":     action.use_capi,
         "pacing_speed": action.pacing_speed,
+        "apply_safety_cap": action.apply_safety_cap,
     }
     return json.dumps(d)
 

@@ -569,3 +569,57 @@ def test_task1_grader_summary_has_phase_scores():
     grade = client.post("/grader", json={"task_id": 1}).json()
     for key in ("explore_score", "learn_score", "exploit_score"):
         assert key in grade["summary"], f"summary missing '{key}'"
+
+
+# ---------------------------------------------------------------------------
+# Q4 Gauntlet tasks 5-7
+# ---------------------------------------------------------------------------
+
+def test_q4_step_has_all_campaign_impressions():
+    """Q4 tasks should expose Feed, Reels, and Stories signal on the same day."""
+    client.post("/reset", json={"task_id": 7, "seed": 42})
+    result = client.post("/step", json=VALID_STEP).json()
+    campaigns = result["observation"]["campaigns"]
+    assert {c["campaign_id"] for c in campaigns} == {
+        "camp_feed", "camp_reels", "camp_stories"
+    }
+    assert all(c["impressions"] == 100 for c in campaigns)
+
+
+def test_q4_phase_transitions():
+    """Task 7 should progress through the four named Q4 phases."""
+    client.post("/reset", json={"task_id": 7, "seed": 42})
+    obs = None
+    small = {
+        "allocations": {"camp_feed": 20.0, "camp_reels": 10.0, "camp_stories": 10.0},
+        "attribution": "last_click",
+        "feature_mask": ["I1"],
+    }
+    phases = {}
+    for _ in range(81):
+        result = client.post("/step", json=small).json()
+        obs = result["observation"]
+        if obs["day"] in (20, 21, 51, 81):
+            phases[obs["day"]] = obs["platform_health"]
+    assert phases[20] == "Nominal"
+    assert phases[21] == "Signal_Loss"
+    assert phases[51] == "Andromeda_Glitched"
+    assert phases[81] == "Peak_Load"
+
+
+def test_q4_capi_costs_two_epsilon_plus_feature():
+    """use_capi=True should spend the 2.0 epsilon CAPI cost."""
+    client.post("/reset", json={"task_id": 5, "seed": 42})
+    action = {
+        **VALID_STEP,
+        "use_capi": True,
+    }
+    result = client.post("/step", json=action).json()
+    assert result["info"]["epsilon_cost"] == 2.05
+    assert result["observation"]["epsilon_remaining"] == 5.95
+
+
+def test_schema_exposes_q4_safety_cap():
+    schema = client.get("/schema").json()
+    assert "apply_safety_cap" in schema["action"]["properties"]
+    assert "platform_health" in schema["observation"]["properties"]

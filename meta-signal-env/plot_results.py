@@ -24,11 +24,11 @@ EXPERT_ALL = {
     "T7\nQ4\nChampion":           0.850,
 }
 
-# Equal-split random baseline: 3 seeds per task (from live API)
+# Base model (Llama-3.1-8B, no fine-tuning): 3 seeds per task (from live API)
 EQUAL_SEEDS = {
-    "T5": [0.4881, 0.4807, 0.4780],
-    "T6": [0.9081, 0.9096, 0.9095],
-    "T7": [0.8500, 0.8500, 0.8500],
+    "T5": [0.3956, 0.4511, 0.5900],
+    "T6": [0.5333, 0.5400, 0.4917],
+    "T7": [0.4623, 0.4623, 0.7090],
 }
 
 # Fine-tuned: 3 seeds per task
@@ -97,7 +97,7 @@ width = 0.24
 
 bars_r = ax2.bar(x - width,
                  [EQUAL_AVG[t] for t in tasks],
-                 width, label="Equal-split baseline (avg 3 seeds)",
+                 width, label="Base model — no fine-tuning (avg 3 seeds)",
                  color=C_RANDOM, edgecolor="white", linewidth=1.2, zorder=3)
 
 bars_e = ax2.bar(x,
@@ -149,7 +149,7 @@ for i, t in enumerate(tasks):
 
 ax2.set_ylim(0, 1.05)
 ax2.set_ylabel("Score (0 – 1)", fontsize=11)
-ax2.set_title("Reward Improvement: Random → ExpertBot → Fine-tuned\nQ4 Gauntlet Tasks (3 seeds each)",
+ax2.set_title("Reward Improvement: Base Model → ExpertBot → Fine-tuned\nQ4 Gauntlet Tasks (3 seeds each)",
               fontsize=12, fontweight="bold", pad=14)
 ax2.set_xticks(x)
 ax2.set_xticklabels([TASK_LABELS[t] for t in tasks], fontsize=8.5)
@@ -159,7 +159,7 @@ ax2.set_axisbelow(True)
 ax2.spines[["top", "right"]].set_visible(False)
 
 ax2.legend(handles=[
-    mpatches.Patch(color=C_RANDOM, label="Equal-split baseline (avg 3 seeds)"),
+    mpatches.Patch(color=C_RANDOM, label="Base model — no fine-tuning (avg 3 seeds)"),
     mpatches.Patch(color=C_EXPERT, label="ExpertBot (hand-coded expert)"),
     mpatches.Patch(color=C_FT,     label="Fine-tuned Llama-3.1-8B QLoRA (avg 3 seeds)"),
     mpatches.Patch(color=C_SEED,   label="Individual seed scores"),
@@ -169,7 +169,7 @@ ax2.legend(handles=[
 fig.text(
     0.5, 0.01,
     "Fine-tuned: Llama-3.1-8B-Instruct + QLoRA (rank=16), 1 epoch on ~41k expert demos  |  "
-    "Loss: 0.1080  |  Task 5: +65% above random  |  Task 6: fine-tuned BEATS ExpertBot by +8.5 pts",
+    "Loss: 0.1080  |  Avg improvement over base model: +67% T5, +82% T6, +56% T7  |  Task 6 BEATS ExpertBot by +8.5 pts",
     ha="center", fontsize=8.5, color="#555555",
 )
 

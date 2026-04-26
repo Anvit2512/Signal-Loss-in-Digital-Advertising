@@ -90,13 +90,13 @@ tasks:
     max_features: 3
     initial_epsilon: 8.0
     initial_budget: 3000.0
-    note: "Q4 Phase 2 -- ATT blackout from day 1; CAPI rationing is key mechanic"
+    note: "Q4 days 1-20 setup, days 21-30 ATT blackout; CAPI rationing is key mechanic"
 
   - id: 6
     name: "Andromeda Stability"
     difficulty: expert
     max_steps: 75
-    target_roas: 1.5
+    target_roas: 1.2
     max_features: 3
     initial_epsilon: 12.0
     initial_budget: 7500.0
@@ -106,8 +106,8 @@ tasks:
     name: "Q4 Champion"
     difficulty: expert
     max_steps: 100
-    target_roas: 2.0
-    max_features: 5
+    target_roas: 1.0
+    max_features: 3
     initial_epsilon: 20.0
     initial_budget: 10000.0
     note: "All 4 phases in sequence: Setup -> ATT Blackout -> Andromeda -> Black Friday"
@@ -156,6 +156,10 @@ action_schema:
       maximum: 2.0
       default: 1.0
       description: "Q4 Phase 4: above 1.5 triggers 30% chance of catastrophic budget dump per step"
+    apply_safety_cap:
+      type: boolean
+      default: true
+      description: "Q4 Phase 4: prevents the midnight overspend bug but caps effective pacing"
 
 observation_schema:
   type: object

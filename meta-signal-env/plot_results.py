@@ -19,18 +19,18 @@ EXPERT_ALL = {
     "T2\nNoisy Signal\nRecovery": 0.54,
     "T3\nPrivacy\nFrontier":      0.72,
     "T4\nAdversarial\nRegulator": 0.60,
-    "T5\nSignal\nRecovery":       0.716,
-    "T6\nAndromeda\nStability":   0.542,
-    "T7\nQ4\nChampion":           0.663,
+    "T5\nSignal\nRecovery":       0.800,
+    "T6\nAndromeda\nStability":   0.864,
+    "T7\nQ4\nChampion":           0.850,
 }
 
 # Fine-tuned: 3 seeds per task
 FT_SEEDS = {
-    "T5": [0.716, 0.721, 0.494],
-    "T6": [0.542, 0.550, 0.530],
-    "T7": [0.663, 0.663, 0.663],
+    "T5": [0.800, 0.800, 0.800],
+    "T6": [0.864, 0.864, 0.864],
+    "T7": [0.850, 0.850, 0.850],
 }
-EXPERT_Q4 = {"T5": 0.716, "T6": 0.542, "T7": 0.663}
+EXPERT_Q4 = {"T5": 0.800, "T6": 0.864, "T7": 0.850}
 FT_AVG    = {k: np.mean(v) for k, v in FT_SEEDS.items()}
 
 TASK_LABELS = {
@@ -92,7 +92,7 @@ bars_e = ax2.bar(x - width / 2,
 
 bars_f = ax2.bar(x + width / 2,
                  [FT_AVG[t] for t in tasks],
-                 width, label="Fine-tuned (Llama-3.1-8B QLoRA avg)",
+                 width, label="Pending fine-tuned re-run placeholder",
                  color=C_FT, edgecolor="white", linewidth=1.2, zorder=3)
 
 # Seed dots on fine-tuned bars
@@ -127,7 +127,7 @@ for i, t in enumerate(tasks):
 
 ax2.set_ylim(0, 1.0)
 ax2.set_ylabel("Score (0 – 1)", fontsize=11)
-ax2.set_title("Fine-Tuned Model vs ExpertBot\nQ4 Gauntlet Tasks (3 seeds each)",
+ax2.set_title("Q4 Gauntlet ExpertBot Baselines\nFine-tuned re-run pending",
               fontsize=13, fontweight="bold", pad=14)
 ax2.set_xticks(x)
 ax2.set_xticklabels([TASK_LABELS[t] for t in tasks], fontsize=8.5)
@@ -139,15 +139,15 @@ ax2.spines[["top", "right"]].set_visible(False)
 seed_dot = mpatches.Patch(color=C_SEED, label="Individual seed scores")
 ax2.legend(handles=[
     mpatches.Patch(color=C_EXPERT, label="ExpertBot baseline"),
-    mpatches.Patch(color=C_FT,     label="Fine-tuned avg (3 seeds)"),
+    mpatches.Patch(color=C_FT,     label="Pending re-run placeholder"),
     seed_dot,
 ], fontsize=8.5, loc="lower right", framealpha=0.85)
 
 # ── Shared caption ─────────────────────────────────────────────────────────────
 fig.text(
     0.5, 0.01,
-    "Fine-tuned: Llama-3.1-8B-Instruct + QLoRA (rank=16), trained on 10,250 expert demonstrations  |  "
-    "Loss: 0.1083  |  Task 7 fine-tuned score matches ExpertBot exactly across all seeds",
+    "ExpertBot baselines refreshed after Q4 simultaneous-placement fix  |  "
+    "Re-run fine-tuned evaluation after regenerating demonstrations from this environment",
     ha="center", fontsize=8.5, color="#555555",
 )
 
